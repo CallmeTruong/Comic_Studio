@@ -408,7 +408,7 @@ def compose_unified_panel_prompt(
     dialogues: Iterable = None,
     camera_angle: str | None = None,
     camera_distance: str | None = None,
-    description_vi: str | None = None,
+    description_en: str | None = None,
     max_tokens: int = 150,
     style_positive: List[str] | None = None,
     style_negative: List[str] | None = None,
@@ -466,7 +466,7 @@ def compose_unified_panel_prompt(
         if interaction_parts:
             priority_parts.append(", ".join(interaction_parts))
     
-    # Đưa panel_prompt lên priority để ưu tiên nội dung chính xác
+    # Put panel_prompt in priority for better content accuracy
     if panel_prompt:
         priority_parts.insert(0, panel_prompt)
     
@@ -487,64 +487,64 @@ def compose_unified_panel_prompt(
     if emotion:
         secondary_parts.append(emotion)
     
-    # Bỏ "beautiful" để tiết kiệm tokens
+    # Remove "beautiful" to save tokens
     prompt_parts = []
     
     if priority_parts:
         prompt_parts.append(", ".join(priority_parts))
     
-    # Chỉ thêm secondary_parts nếu còn chỗ (sau khi truncate)
+    # Only add secondary_parts if there is space (after truncate)
     # if secondary_parts:
     #     prompt_parts.append(", ".join(secondary_parts))
     
-    # Bỏ style_positive và "award winning" để tiết kiệm tokens
-    # Chỉ giữ "high quality" nếu còn chỗ
+    # Remove style_positive and "award winning" to save tokens
+    # Only keep "high quality" if there is space
     # if style_positive:
     #     prompt_parts.extend(style_positive)
     # prompt_parts.extend(["high quality"])
     
     unified_prompt = ", ".join(filter(None, prompt_parts))
     
-    # Bước 1: Nén prompt (loại bỏ stop words, nén cụm từ)
+    # Step 1: Compress prompt (remove stop words, compress phrases)
     unified_prompt = compress_prompt(unified_prompt)
     
-    # Bước 2: Truncate nếu vẫn quá dài
-    # CLIP tokenizer chỉ hỗ trợ tối đa 77 tokens, nên cần chọn lọc kỹ
+    # Step 2: Truncate if still too long
+    # CLIP tokenizer supports max 77 tokens, so we must be selective
     unified_prompt = truncate_prompt_smart(unified_prompt, max_tokens=max_tokens)
     
-    # Nếu vẫn quá dài sau truncate, tối ưu lại bằng cách giữ phần quan trọng nhất
+    # If still too long after truncate, optimize by keeping most important parts
     if _CLIP_TOKENIZER is not None:
         try:
             tokens = _CLIP_TOKENIZER.encode(unified_prompt, truncation=False, return_tensors="pt")[0]
             if len(tokens) > max_tokens:
-                # Ưu tiên: panel_prompt > character descriptions > objects
+                # Priority: panel_prompt > character descriptions > objects
                 essential_parts = []
                 
-                # Luôn giữ panel_prompt (quan trọng nhất - mô tả nội dung chính)
+                # Always keep panel_prompt (most important - main content)
                 if priority_parts and len(priority_parts) > 0:
                     essential_parts.append(priority_parts[0])  # panel_prompt
                 
-                # Giữ character descriptions ngắn gọn (chỉ tên và đặc điểm chính)
+                # Keep character descriptions short (only name and main traits)
                 if len(priority_parts) > 1:
-                    # Lấy character description đầu tiên (ngắn gọn hơn)
+                    # Get first character description (shorter)
                     char_desc = priority_parts[1] if len(priority_parts) > 1 else ""
                     if char_desc:
-                        # Rút gọn character description: chỉ giữ tên, gender, clothing chính
+                        # Shorten character description: only keep name, gender, main clothing
                         char_words = char_desc.split()
-                        # Giữ ~15-20 từ đầu (tên + đặc điểm chính)
+                        # Keep ~15-20 first words (name + main traits)
                         char_desc_short = " ".join(char_words[:20])
                         essential_parts.append(char_desc_short)
                 
-                # Giữ objects quan trọng (nếu có)
+                # Keep important objects (if any)
                 if len(priority_parts) > 2:
-                    # Tìm phần objects (thường ở cuối priority_parts)
+                    # Find objects part (usually at end of priority_parts)
                     for part in priority_parts[2:]:
                         if any(obj in part.lower() for obj in ["coffee", "notebook", "tissue", "pen"]):
                             obj_words = part.split()
-                            essential_parts.append(" ".join(obj_words[:10]))  # Giữ ~10 từ
+                            essential_parts.append(" ".join(obj_words[:10]))  # Keep ~10 words
                             break
                 
-                # Thêm style tags ngắn gọn
+                # Add short style tags
                 essential_parts.append("high quality")
                 
                 unified_prompt = ", ".join(filter(None, essential_parts))
@@ -564,14 +564,14 @@ def compose_unified_panel_prompt(
     if characters_meta and len(characters_meta) > 0:
         negative_parts.append("teacher, adult, old person, elderly")
         
-        # Rút gọn negative prompts nhưng vẫn nhấn mạnh số lượng và giới tính
+        # Shorten negative prompts but emphasize count and gender
         if len(characters_meta) == 1:
             negative_parts.append("multiple people, extra characters, third person")
         elif len(characters_meta) == 2:
-            # Nhấn mạnh: phải có đúng 2 người với giới tính đúng
+            # Emphasize: exactly 2 people with correct gender
             genders = [extract_gender_and_age(c.base_prompt_en)[0] for c, _ in characters_meta]
             if "female" in genders and "male" in genders:
-                # Có 1 nữ và 1 nam
+                # One female and one male
                 negative_parts.append("no third person, no extra people, no same gender pair")
                 negative_parts.append("must have one female and one male")
             else:
@@ -580,7 +580,7 @@ def compose_unified_panel_prompt(
         else:
             negative_parts.append(f"no extra people, exactly {len(characters_meta)} characters")
         
-        # Nhấn mạnh giới tính cho từng nhân vật
+        # Emphasize gender for each character
         for char_meta, char_id in characters_meta:
             gender, age = extract_gender_and_age(char_meta.base_prompt_en)
             if gender == "female":
@@ -600,7 +600,7 @@ def compose_unified_panel_prompt(
         if "tissue" in panel_lower or "paper" in panel_lower:
             negative_parts.append("no tissue, missing tissue, no paper")
     
-    # Thêm negative prompts mạnh hơn để loại bỏ nhân vật phụ
+    # Add stronger negative prompts to remove extra characters
     if characters_meta and len(characters_meta) == 2:
         negative_parts.append("3 people, 4 people, 5 people, 6 people, many people, multiple people, extra characters, background characters, crowd, group, bystanders, onlookers, other students, other people, additional people, more than 2 people, more than two characters")
     

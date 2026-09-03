@@ -20,7 +20,7 @@ FONT_REGISTRY: Dict[str, Path] = {
     "manoskope": FONT_ROOT / "Manoskope" / "DVNFredoka-Bold.woff2",
 }
 
-# Mô tả semantic cho mỗi font
+# Semantic description for each font
 FONT_DESCRIPTIONS: Dict[str, str] = {
     "actionman": "neutral calm normal default casual friendly conversation",
     "digitalstrip": "surprised shocked amazed astonished wow unexpected stunning",

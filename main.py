@@ -12,18 +12,18 @@ def cleanup_old_files(character_dir: str, panel_dir: str, background_dir: str | 
     if character_path.exists():
         character_files = list(character_path.glob("*.png"))
         if character_files:
-            print(f"[CLEANUP] Xóa {len(character_files)} character files...")
+            print(f"[CLEANUP] Deleted {len(character_files)} character files...")
             for file in character_files:
                 file.unlink()
-            print(f"✓ Đã xóa {len(character_files)} character files")
+            print(f"✓ Deleted {len(character_files)} character files")
     
     if panel_path.exists():
         panel_files = list(panel_path.glob("*.png"))
         if panel_files:
-            print(f"[CLEANUP] Xóa {len(panel_files)} panel files...")
+            print(f"[CLEANUP] Deleted {len(panel_files)} panel files...")
             for file in panel_files:
                 file.unlink()
-            print(f"✓ Đã xóa {len(panel_files)} panel files")
+            print(f"✓ Deleted {len(panel_files)} panel files")
     
     if background_dir:
         bg_path = Path(background_dir)
@@ -31,10 +31,10 @@ def cleanup_old_files(character_dir: str, panel_dir: str, background_dir: str | 
             bg_files = list(bg_path.glob("background_*.png"))
             bg_meta_files = list(bg_path.glob("background_*.json"))
             if bg_files or bg_meta_files:
-                print(f"[CLEANUP] Xóa {len(bg_files)} background cache files...")
+                print(f"[CLEANUP] Deleted {len(bg_files)} background cache files...")
                 for file in bg_files + bg_meta_files:
                     file.unlink()
-                print(f"✓ Đã xóa {len(bg_files)} background cache files")
+                print(f"✓ Deleted {len(bg_files)} background cache files")
     
     for meta_file in [
         panel_path / "panel_sizes.json",
@@ -42,7 +42,7 @@ def cleanup_old_files(character_dir: str, panel_dir: str, background_dir: str | 
     ]:
         if meta_file.exists():
             meta_file.unlink()
-            print(f"✓ Đã xóa {meta_file.name}")
+            print(f"✓ Deleted {meta_file.name}")
     
 
 def main():
@@ -108,7 +108,7 @@ def main():
         panel_files = sorted(Path(paths.panel_dir).glob("*.png"))
     
     if not panel_files:
-        raise ValueError(f"Không tìm thấy panels trong {paths.panel_dir}")
+        raise ValueError(f"No panels found in {paths.panel_dir}")
     
     layout_for_page = selected_layout or story.layout_name
     page = build_comic_page(

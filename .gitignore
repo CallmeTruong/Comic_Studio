@@ -14,7 +14,7 @@ ENV/
 .env.*
 !.env.example
 
-# Models & Weights (Tránh đẩy các file model hàng chục GB lên Git)
+# Models & Weights (Avoid pushing huge models to Git)
 models/base/*.safetensors
 models/base/*.ckpt
 models/base/*.pt
@@ -25,12 +25,12 @@ models/loras/*.pt
 models/controlnet/*.pth
 models/controlnet/*.safetensors
 
-# Generated Outputs (Ảnh xuất ra)
+# Generated Outputs
 outputs/
 comic_page*.png
 comic_page*.jpg
 
-# Temporary / Data files (Dữ liệu sinh ra khi chạy tool)
+# Temporary / Data files
 data/base/schema/story.json
 data/base/schema/panel_sizes.json
 scratch/

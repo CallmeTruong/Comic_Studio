@@ -284,7 +284,7 @@ def generate_panels_unified(
                             character_positions_dict[char_id] = char_pos_obj
         
         if not characters_meta:
-            print(f"[WARN] Panel {panel.id} không có nhân vật nào!")
+            print(f"[WARN] Panel {panel.id} has no characters!")
         
         main_char_meta = characters_meta[0][0] if characters_meta else None
         camera_angle = main_char_meta.camera_angle if main_char_meta else None
@@ -303,7 +303,7 @@ def generate_panels_unified(
             dialogues=panel.dialogues,
             camera_angle=camera_angle,
             camera_distance=camera_distance,
-            description_vi=panel.description_vi,
+            description_en=panel.description_en,
             max_tokens=77,  # CLIP tokenizer limit
             style_positive=style_preset.prompt_tags,
             style_negative=style_negative_tags,

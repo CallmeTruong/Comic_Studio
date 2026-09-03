@@ -170,10 +170,10 @@ def build_comic_page(
     panels_dict = load_panels(panels_dir)
     
     if not panels_dict:
-        raise ValueError(f"Không tìm thấy panels trong {panels_dir}")
+        raise ValueError(f"No panels found in {panels_dir}")
     
     num_panels = len(panels_dict)
-    print(f"[INFO] Tìm thấy {num_panels} panels")
+    print(f"[INFO] Found {num_panels} panels")
     
     panel_list = get_panel_list_ordered(panels_dict)
     

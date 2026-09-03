@@ -45,7 +45,7 @@ class Panel:
     id: str
     panel_prompt_en: str
     panel_negative_en: str = ""
-    description_vi: str = ""
+    description_en: str = ""
     active_char_ids: List[str] = None
     character_positions: Dict[str, CharacterPosition] = None
     character_actions: Dict[str, CharacterAction] = None
@@ -123,7 +123,7 @@ def load_comic_from_json(data: dict) -> Comic:
             id=panel_data.get("id", ""),
             panel_prompt_en=panel_data.get("panel_prompt_en", ""),
             panel_negative_en=panel_data.get("panel_negative_en", ""),
-            description_vi=panel_data.get("description_vi", ""),
+            description_en=panel_data.get("description_en", ""),
             active_char_ids=panel_data.get("active_char_ids", []),
             character_positions=character_positions,
             character_actions=character_actions,

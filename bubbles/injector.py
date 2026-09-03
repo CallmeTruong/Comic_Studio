@@ -444,8 +444,19 @@ def find_character_bounding_box(image: Image.Image) -> Optional[Tuple[int, int, 
         from rembg import remove
         import io
 
+        # Downscale image to avoid ONNX OOM on high-res panels
+        original_width, original_height = image.size
+        max_dim = 512
+        scale = 1.0
+        if original_width > max_dim or original_height > max_dim:
+            scale = max_dim / max(original_width, original_height)
+            new_w, new_h = int(original_width * scale), int(original_height * scale)
+            process_image = image.resize((new_w, new_h), Image.Resampling.LANCZOS)
+        else:
+            process_image = image
+
         img_bytes = io.BytesIO()
-        image.save(img_bytes, format="PNG")
+        process_image.save(img_bytes, format="PNG")
         img_bytes.seek(0)
 
         output_bytes = remove(img_bytes.getvalue())
@@ -457,10 +468,10 @@ def find_character_bounding_box(image: Image.Image) -> Optional[Tuple[int, int, 
         if len(foreground_pixels[0]) == 0:
             return None
 
-        min_y = np.min(foreground_pixels[0])
-        max_y = np.max(foreground_pixels[0])
-        min_x = np.min(foreground_pixels[1])
-        max_x = np.max(foreground_pixels[1])
+        min_y = int(np.min(foreground_pixels[0]) / scale)
+        max_y = int(np.max(foreground_pixels[0]) / scale)
+        min_x = int(np.min(foreground_pixels[1]) / scale)
+        max_x = int(np.max(foreground_pixels[1]) / scale)
 
         width, height = image.size
         padding_x = int((max_x - min_x) * 0.1)

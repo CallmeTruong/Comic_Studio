@@ -27,7 +27,7 @@ def generate_comic(
     print(f"[SCHEMA] User prompt: {prompt}")
     # Nếu force_regenerate_schema=True, xóa schema cũ trước
     if force_regenerate_schema and Path(base_schema_path).exists():
-        print(f"[SCHEMA] Force regenerate: xóa schema cũ tại {base_schema_path}")
+        print(f"[SCHEMA] Force regenerate: deleted old schema at {base_schema_path}")
         Path(base_schema_path).unlink()
     
     try:
@@ -35,8 +35,8 @@ def generate_comic(
     except RuntimeError as err:
         if Path(base_schema_path).exists() and "quota" in str(err).lower():
             print("[SCHEMA] Quota hit, reuse existing schema on disk.")
-            print(f"[SCHEMA] ⚠️  CẢNH BÁO: Đang dùng schema cũ, có thể không khớp với prompt mới!")
-            print(f"[SCHEMA] Prompt hiện tại: {prompt}")
+            print(f"[SCHEMA] ⚠️  WARNING: Using old schema, may not match new prompt!")
+            print(f"[SCHEMA] Current prompt: {prompt}")
         else:
             raise
 

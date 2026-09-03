@@ -73,7 +73,7 @@ class SD:
             print("[WARN] CUDA not available or not selected. Running on CPU.")
             self.pipe.to("cpu")
         
-        # Tắt slicing để chạy nhanh nhất có thể (chấp nhận ngốn VRAM)
+        # Disable slicing to maximize speed (uses more VRAM)
         # self.pipe.enable_attention_slicing()
         # self.pipe.enable_vae_slicing()
         print(f"[SD] ✓ Model loaded on {device}")

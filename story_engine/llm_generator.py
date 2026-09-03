@@ -104,20 +104,20 @@ Every line MUST do ONE of:
 4. Show relationship dynamic
 5. Reference past/future with emotional weight
 
-### 2.2 ELLIPSIS USAGE RULES (Correct Natural Vietnamese)
+### 2.2 ELLIPSIS USAGE RULES (Correct Natural English)
 **"..." is ALLOWED but must follow strict rules:**
 
 **✓ CORRECT USES (Natural pauses, trailing thoughts, emotional hesitation):**
-- Trailing thought: "Mấy món này lấp lánh thật... nhưng sao thấy thiếu thiếu."
-- Hesitation: "Con muốn nói là... ba đừng lo cho con."
-- Memory/nostalgia: "Ngày xưa mình cũng làm thế này... nhớ quá."
-- Interrupted thought: "Nếu mà ba còn ở đây thì..."
-- Soft ending: "Hy vọng mọi thứ sẽ ổn thôi..."
+- Trailing thought: "These look sparkly... but something feels missing."
+- Hesitation: "I mean... please don't worry about me, dad."
+- Memory/nostalgia: "We used to do this in the old days... I miss it."
+- Interrupted thought: "If only dad was still here..."
+- Soft ending: "Hopefully everything will be alright..."
 
 **❌ WRONG USES (Overuse, meaningless, or multiple in one line):**
-- Multiple ellipsis: "Mấy món này... lấp lánh thật... nhưng..." (too fragmented)
-- No purpose: "Cây thông đẹp quá..." (just add "..." for no reason)
-- Both ends: "...Mình đi thôi..." (comic dialogue never starts with "...")
+- Multiple ellipsis: "These... look sparkly... but..." (too fragmented)
+- No purpose: "The tree is so beautiful..." (just add "..." for no reason)
+- Both ends: "...Let's go..." (comic dialogue never starts with "...")
 - Every line: Don't use "..." in every dialogue line
 
 **RULES:**
@@ -130,32 +130,32 @@ Every line MUST do ONE of:
 ---
 
 ### 2.3 FORBIDDEN Dialogue Types
-❌ Describing visible action: "Cây thông đẹp quá!" "Mình đang nấu đây."
-❌ Empty exclamations: "Vui quá!" "Tuyệt!" "Ồ!" "Hmm..."
-❌ Generic statements: "Cố lên!" "Được rồi!" "Xong rồi!"
+❌ Describing visible action: "The tree is so beautiful!" "I am cooking right now."
+❌ Empty exclamations: "So fun!" "Great!" "Oh!" "Hmm..."
+❌ Generic statements: "Come on!" "Alright!" "Done!"
 ❌ No interaction: Two characters making unrelated statements
-❌ Stating the obvious: "Giáng Sinh đến rồi!" while decorating
+❌ Stating the obvious: "Christmas is here!" while decorating
 
 ### 2.3 Dialogue Depth Formula
 **Good Dialogue = Current Moment + (Past Memory OR Hidden Emotion OR Relationship Truth)**
 
 Examples:
-- ❌ "Bánh ngon quá!" 
-- ✓ "Vị này y hệt bánh bà nội làm."
+- ❌ "This cake is delicious!" 
+- ✓ "This tastes exactly like grandma's cake."
 
-- ❌ "Cây thông đẹp!"
-- ✓ "Năm nay mình tự làm, không đợi ba mẹ nữa."
+- ❌ "Beautiful tree!"
+- ✓ "We did it ourselves this year, without waiting for mom and dad."
 
-- ❌ "Cao hơn nữa nha!"
-- ✓ "Em cẩn thận, đừng như lần trước."
+- ❌ "A bit higher!"
+- ✓ "Be careful, don't repeat what happened last time."
 
 ### 2.4 Subtext Requirement
 Panels 2-4 dialogue must have subtext (what is meant vs what is said):
 
-**Surface**: "Năm nay mình tự làm được rồi."
+**Surface**: "We can do it ourselves this year."
 **Deep**: We've grown up, proving independence to ourselves
 
-**Surface**: "Ba mẹ về thấy chắc vui lắm."
+**Surface**: "Mom and dad will be so happy when they see this."
 **Deep**: I want to make them proud, show we're responsible
 
 ### 2.5 Dialogue Self-Check (Before Output)
@@ -251,7 +251,7 @@ Always create stories that are:
 
 ```json
 {
-  "title": "Vietnamese story title (emotional hook)",
+  "title": "English story title (emotional hook)",
   "metadata": {
     "background_seed": 2000,
     "base_seed": 1000,
@@ -264,7 +264,7 @@ Always create stories that are:
   },
   "characters": {
     "char_id": {
-      "name": "Vietnamese name",
+      "name": "English name",
       "description": "Age + role + relationship to others",
       "personality": "2-3 core traits affecting dialogue style",
       "emotional_arc": "Panel 1 state → Panel 4 state",
@@ -282,7 +282,7 @@ Always create stories that are:
       "emotional_beat": "What feeling this panel creates",
       "panel_prompt_en": "20-40 words: Character action + motivation, foreground details, setting, lighting",
       "panel_negative_en": "Panel-specific issues to avoid",
-      "description_vi": "Vietnamese summary",
+      "description_en": "English summary",
       "active_char_ids": ["char_id"],
       "character_positions": {
         "char_id": {
@@ -303,7 +303,7 @@ Always create stories that are:
       "dialogues": [
         {
           "character_id": "char_id",
-          "text": "Vietnamese, 3-10 words, no ellipsis, passes Section 2 checks",
+          "text": "English, 3-10 words, no ellipsis, passes Section 2 checks",
           "emotion": "specific emotion matching expression",
           "dialogue_purpose": "personality/emotion/conflict/relationship/memory",
           "subtext": "What the line really means (for verification only, not in output)"
@@ -347,24 +347,24 @@ Always create stories that are:
 ## 8. EXAMPLE COMPARISON
 
 ### ❌ SHALLOW STORY (Decorating Tree)
-P1: "Cây thông đẹp quá!" (describes visible)
-P2: "Ngôi sao này sẽ là điểm nhấn." (states plan)
-P3: "Cao hơn tí nha!" (directs action)
-P4: "Giáng Sinh đã đến rồi!" (states obvious)
+P1: "The tree is so beautiful!" (describes visible)
+P2: "This star will be the highlight." (states plan)
+P3: "A little higher!" (directs action)
+P4: "Christmas is here!" (states obvious)
 
 **Why it fails**: No stakes, no conflict, no growth, generic dialogue
 
 ### ✓ DEEP STORY (Two Sisters, First Christmas After Parents' Death)
-P1: "Năm nay chỉ có hai chị em mình thôi." 
+P1: "It's just the two of us this year." 
 - Stakes: First holiday alone, need to create normalcy
 
-P2: "Ngôi sao này ba mua năm đầu tiên mình có cây thông."
+P2: "Dad bought this star the first year we had a tree."
 - Memory: Connection to deceased parent, object has meaning
 
-P3: "Em cẩn thận, chị không muốn mất thêm thứ gì nữa."
+P3: "Be careful, I don't want to lose anything else."
 - Vulnerability: Fear of more loss, protective instinct, raw emotion
 
-P4: "Ba mẹ mà nhìn thấy chắc tự hào lắm."
+P4: "Mom and dad would be so proud if they saw this."
 - Growth: Finding strength, honoring parents, moving forward together
 
 **Why it works**: Clear stakes (coping with loss), internal conflict (fear vs hope), transformation (helpless → resilient), subtext in every line, specific memories
@@ -399,7 +399,7 @@ If panel count doesn't match request, the output is invalid.
 def extract_first_json(text: str) -> dict:
     start = text.find("{")
     if start == -1:
-        raise ValueError("Không tìm thấy '{' trong output")
+        raise ValueError("Could not find '{' in output")
     
     depth = 0
     for i, ch in enumerate(text[start:], start=start):
@@ -413,7 +413,7 @@ def extract_first_json(text: str) -> dict:
             try:
                 return json.loads(candidate)
             except json.JSONDecodeError as e:
-                raise ValueError(f"JSON decode lỗi: {e}")
+                raise ValueError(f"JSON decode error: {e}")
 
 def _call_model_with_retry(contents, generation_config):
     if model is None:
@@ -423,23 +423,23 @@ def _call_model_with_retry(contents, generation_config):
     for attempt in range(1, SCHEMA_MAX_RETRIES + 1):
         start = time.time()
         try:
-            print(f"[SCHEMA] Gọi Gemini attempt {attempt}/{SCHEMA_MAX_RETRIES}...")
+            print(f"[SCHEMA] Calling Gemini attempt {attempt}/{SCHEMA_MAX_RETRIES}...")
             response = model.generate_content(
                 contents,
                 generation_config=generation_config,
             )
             elapsed = time.time() - start
-            print(f"[SCHEMA] ✓ Nhận response sau {elapsed:.1f}s")
+            print(f"[SCHEMA] ✓ Received response in {elapsed:.1f}s")
             return response
         except Exception as err:
             elapsed = time.time() - start
-            print(f"[SCHEMA] ✗ Lỗi attempt {attempt} sau {elapsed:.1f}s: {err}")
+            print(f"[SCHEMA] ✗ Error on attempt {attempt} sau {elapsed:.1f}s: {err}")
             last_error = err
             if attempt < SCHEMA_MAX_RETRIES:
                 wait_time = min(12.0, (SCHEMA_RETRY_BACKOFF_BASE ** attempt))
-                print(f"[SCHEMA] Đợi {wait_time:.1f}s rồi thử lại...")
+                print(f"[SCHEMA] Waiting {wait_time:.1f}s before retrying...")
                 time.sleep(wait_time)
-    raise RuntimeError(f"Gemini generate_content thất bại sau {SCHEMA_MAX_RETRIES} lần: {last_error}")
+    raise RuntimeError(f"Gemini generate_content failed after {SCHEMA_MAX_RETRIES} attempts: {last_error}")
 
 def generate_schema(user_prompt: str, output_path: str = "data/base/schema/story.json"):
     generation_config = {
@@ -449,12 +449,12 @@ def generate_schema(user_prompt: str, output_path: str = "data/base/schema/story
         "max_output_tokens": 8192,
     }
 
-    contents = SYSTEM_INSTRUCTION + "\n\nMô tả của người dùng: " + user_prompt
+    contents = SYSTEM_INSTRUCTION + "\n\nUser description: " + user_prompt
 
     response = _call_model_with_retry(contents, generation_config)
     
     if not response.candidates:
-        raise RuntimeError("Gemini không trả candidate nào")
+        raise RuntimeError("Gemini returned no candidates")
     
     parts_text = []
     for part in response.candidates[0].content.parts:
@@ -464,12 +464,12 @@ def generate_schema(user_prompt: str, output_path: str = "data/base/schema/story
     raw_text = "".join(parts_text).strip()
     
     if not raw_text:
-        raise RuntimeError("Gemini trả về text rỗng")
+        raise RuntimeError("Gemini returned empty text")
     
     try:
         data = extract_first_json(raw_text)
     except Exception as e:
-        print(f"[SCHEMA] Lỗi parse JSON: {e}")
+        print(f"[SCHEMA] JSON parse error: {e}")
         print(f"[SCHEMA] Raw output (first 500 chars): {raw_text[:500]}")
         raise
     
@@ -479,6 +479,6 @@ def generate_schema(user_prompt: str, output_path: str = "data/base/schema/story
     with open(output_path_obj, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
     
-    print(f"[SCHEMA] ✓ Đã lưu schema: {output_path}")
+    print(f"[SCHEMA] ✓ Saved schema: {output_path}")
     return data
 
