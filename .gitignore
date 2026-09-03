@@ -1,0 +1,42 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+
+# Environment Variables
+.env
+.env.*
+!.env.example
+
+# Models & Weights (Tránh đẩy các file model hàng chục GB lên Git)
+models/base/*.safetensors
+models/base/*.ckpt
+models/base/*.pt
+models/embeddings/*.pt
+models/embeddings/*.safetensors
+models/loras/*.safetensors
+models/loras/*.pt
+models/controlnet/*.pth
+models/controlnet/*.safetensors
+
+# Generated Outputs (Ảnh xuất ra)
+outputs/
+comic_page*.png
+comic_page*.jpg
+
+# Temporary / Data files (Dữ liệu sinh ra khi chạy tool)
+data/base/schema/story.json
+data/base/schema/panel_sizes.json
+scratch/
+
+# IDE & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
