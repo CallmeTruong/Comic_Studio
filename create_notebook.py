@@ -77,6 +77,11 @@ nb.cells.append(nbformat.v4.new_code_cell(
     "    gradio_utils.id_length = id_length\n"
     "    gradio_utils.total_length = num_panels\n"
     "    gradio_utils.cur_step = 0\n"
+    "    gradio_utils.write = False\n"
+    "    gradio_utils.sa32 = 0.5\n"
+    "    gradio_utils.sa64 = 0.5\n"
+    "    gradio_utils.height = 768\n"
+    "    gradio_utils.width = 768\n"
     "    print('✅ Khởi tạo StoryDiffusion xong!')\n"
 ))
 
