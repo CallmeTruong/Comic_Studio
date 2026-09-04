@@ -12,21 +12,24 @@ from .prompts import (
 from .state import StudioState
 from database.scene_state import get_scene_state
 from database.sqlite_db import get_all_characters, get_open_hooks
+from langchain_core.runnables import RunnableConfig
 
 # Initialize LLM
 llm = ChatOpenAI(model="gpt-4o", temperature=0.7)
 llm_json = ChatOpenAI(model="gpt-4o", temperature=0.3, model_kwargs={"response_format": {"type": "json_object"}})
 
-def run_director(state: StudioState) -> StudioState:
+def run_director(state: StudioState, config: RunnableConfig) -> StudioState:
     print("[DIRECTOR] Planning new Chapter...")
+    series_id = config.get("configurable", {}).get("series_id", "default")
+    
     prompt = ChatPromptTemplate.from_messages([
         ("system", DIRECTOR_SYSTEM_PROMPT),
         ("human", "User Idea: {user_prompt}\n\nExisting Lore: {lore}\n\nUnresolved Hooks: {hooks}\n\nProvide a detailed Chapter Outline (Page by Page).")
     ])
     
-    chars = get_all_characters()
+    chars = get_all_characters(series_id)
     lore_text = json.dumps(chars, ensure_ascii=False)
-    hooks_text = json.dumps(get_open_hooks(), ensure_ascii=False)
+    hooks_text = json.dumps(get_open_hooks(series_id), ensure_ascii=False)
     
     chain = prompt | llm
     res = chain.invoke({
@@ -91,11 +94,18 @@ def run_storyboarder(state: StudioState) -> StudioState:
     
     prompt = ChatPromptTemplate.from_messages([
         ("system", STORYBOARDER_SYSTEM_PROMPT),
-        ("human", "Write the JSON schema for this script:\n{script}\n\nLore (Use strictly these seeds/prompts if characters exist):\n{lore}\n\nMake sure to return valid JSON.")
+        ("human", "Previous Page Context:\n{prev_context}\n\nWrite the JSON schema for this script:\n{script}\n\nLore (Use strictly these seeds/prompts if characters exist):\n{lore}\n\nMake sure to return valid JSON.")
     ])
+    
+    previous_context = "None (This is the first page, establish the scene based on the script)."
+    prev_schema = state.get("previous_schema")
+    if prev_schema and "panels" in prev_schema and prev_schema["panels"]:
+        last_panel = prev_schema["panels"][-1]
+        previous_context = f"Last Panel Background/Setting: {last_panel.get('panel_prompt_en', 'Unknown')}"
     
     chain = prompt | llm_json
     res = chain.invoke({
+        "prev_context": previous_context,
         "script": script,
         "lore": state["retrieved_lore"]
     })

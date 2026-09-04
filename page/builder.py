@@ -242,4 +242,15 @@ def build_comic_page(
     output_path_obj.parent.mkdir(parents=True, exist_ok=True)
     page.save(output_path_obj, quality=95)
     
+    # Save panel positions
+    if schema_path:
+        pos_path = Path(schema_path).parent / "page_layout.json"
+        import json
+        with open(pos_path, "w", encoding="utf-8") as f:
+            json.dump({
+                "page_width": page.width,
+                "page_height": page.height,
+                "panels": panel_positions
+            }, f)
+    
     return page

@@ -51,7 +51,8 @@ def run_renderer(state: StudioState) -> StudioState:
     # BUILD PAGE
     print("[RENDERER] Building Page and injecting bubbles...")
     page_idx = state["current_page_idx"]
-    output_path = f"outputs/comic_page_{page_idx+1}.png"
+    out_dir = Path(CONFIG.paths.panel_dir).parent
+    output_path = str(out_dir / f"comic_page_{page_idx+1}.png")
     
     build_comic_page(
         panels_dir=CONFIG.paths.panel_dir,
@@ -76,6 +77,7 @@ def run_renderer(state: StudioState) -> StudioState:
     add_story_event(state.get('chapter_number', 1), page_idx+1, summary)
     
     # Next Page loop
+    state["previous_schema"] = state.get("current_schema")
     state["current_page_idx"] += 1
     state["next_step"] = "storyboarder"
     return state

@@ -2,11 +2,16 @@ import sqlite3
 import json
 from pathlib import Path
 
-DB_PATH = Path("data/lorebook.db")
+def get_db_path(series_id: str) -> Path:
+    if not series_id:
+        series_id = "default"
+    db_path = Path(f"data/series/{series_id}/lorebook.db")
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    return db_path
 
-def init_db():
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
+def init_db(series_id: str):
+    db_path = get_db_path(series_id)
+    conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     
     # Characters Table
@@ -45,8 +50,9 @@ def init_db():
     conn.commit()
     conn.close()
 
-def get_character(char_id: str):
-    conn = sqlite3.connect(DB_PATH)
+def get_character(series_id: str, char_id: str):
+    init_db(series_id)
+    conn = sqlite3.connect(get_db_path(series_id))
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM characters WHERE id=?", (char_id,))
     row = cursor.fetchone()
@@ -63,8 +69,9 @@ def get_character(char_id: str):
         }
     return None
 
-def upsert_character(char_data: dict):
-    conn = sqlite3.connect(DB_PATH)
+def upsert_character(series_id: str, char_data: dict):
+    init_db(series_id)
+    conn = sqlite3.connect(get_db_path(series_id))
     cursor = conn.cursor()
     cursor.execute('''
         INSERT INTO characters (id, name, age, personality, base_prompt_en, seed, inventory)
@@ -79,39 +86,41 @@ def upsert_character(char_data: dict):
     ''', (
         char_data["id"], char_data["name"], char_data.get("age", ""), 
         char_data.get("personality", ""), char_data["base_prompt_en"], 
-        char_data["seed"], json.dumps(char_data.get("inventory", []))
+        int(char_data.get("seed", 42)), json.dumps(char_data.get("inventory", []))
     ))
     conn.commit()
     conn.close()
 
-def get_all_characters():
-    conn = sqlite3.connect(DB_PATH)
+def get_all_characters(series_id: str):
+    init_db(series_id)
+    conn = sqlite3.connect(get_db_path(series_id))
     cursor = conn.cursor()
-    cursor.execute("SELECT id, name, personality, inventory FROM characters")
+    cursor.execute("SELECT id, name, personality, inventory, base_prompt_en, seed, age FROM characters")
     rows = cursor.fetchall()
     conn.close()
-    return [{"id": r[0], "name": r[1], "personality": r[2], "inventory": json.loads(r[3])} for r in rows]
+    return [{"id": r[0], "name": r[1], "personality": r[2], "inventory": json.loads(r[3]), "base_prompt_en": r[4], "seed": r[5], "age": r[6]} for r in rows]
 
-def get_open_hooks():
-    conn = sqlite3.connect(DB_PATH)
+def get_open_hooks(series_id: str):
+    init_db(series_id)
+    conn = sqlite3.connect(get_db_path(series_id))
     cursor = conn.cursor()
     cursor.execute("SELECT id, description, created_in_chapter FROM hooks WHERE status='open'")
     rows = cursor.fetchall()
     conn.close()
     return [{"id": r[0], "description": r[1], "created_in_chapter": r[2]} for r in rows]
 
-def add_hook(description: str, chapter: int):
-    conn = sqlite3.connect(DB_PATH)
+def add_hook(series_id: str, description: str, chapter: int):
+    init_db(series_id)
+    conn = sqlite3.connect(get_db_path(series_id))
     cursor = conn.cursor()
     cursor.execute("INSERT INTO hooks (description, created_in_chapter) VALUES (?, ?)", (description, chapter))
     conn.commit()
     conn.close()
 
-def resolve_hook(hook_id: int):
-    conn = sqlite3.connect(DB_PATH)
+def resolve_hook(series_id: str, hook_id: int):
+    init_db(series_id)
+    conn = sqlite3.connect(get_db_path(series_id))
     cursor = conn.cursor()
     cursor.execute("UPDATE hooks SET status='resolved' WHERE id=?", (hook_id,))
     conn.commit()
     conn.close()
-
-init_db()

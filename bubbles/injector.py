@@ -271,7 +271,7 @@ def find_position_in_zone(
     if zone_w < bubble_width + 20 or zone_h < bubble_height + 20:
         return None
     
-    def is_valid(x: int, y: int) -> bool:
+    def is_valid(x: int, y: int, char_margin: int, bubble_margin: int) -> bool:
         # 1. Trong bounds
         if (x < border_padding or y < border_padding or
             x + bubble_width > page_width - border_padding or
@@ -284,26 +284,24 @@ def find_position_in_zone(
             y + bubble_height > zone_y + zone_h):
             return False
         
-        # 3. Không đè character (75px margin)
+        # 3. Không đè character
         for char_bbox in all_character_bboxes:
             if not char_bbox:
                 continue
             char_left, char_top, char_width, char_height = char_bbox
-            margin = 75
             
-            if not (x + bubble_width + margin <= char_left or
-                    char_left + char_width + margin <= x or
-                    y + bubble_height + margin <= char_top or
-                    char_top + char_height + margin <= y):
+            if not (x + bubble_width + char_margin <= char_left or
+                    char_left + char_width + char_margin <= x or
+                    y + bubble_height + char_margin <= char_top or
+                    char_top + char_height + char_margin <= y):
                 return False
         
-        # 4. Không đè existing bubbles (70px margin)
-        margin = 70
+        # 4. Không đè existing bubbles
         for ex, ey, ew, eh in existing_bubbles:
-            if not (x + bubble_width + margin <= ex or
-                    ex + ew + margin <= x or
-                    y + bubble_height + margin <= ey or
-                    ey + eh + margin <= y):
+            if not (x + bubble_width + bubble_margin <= ex or
+                    ex + ew + bubble_margin <= x or
+                    y + bubble_height + bubble_margin <= ey or
+                    ey + eh + bubble_margin <= y):
                 return False
         
         return True
@@ -313,15 +311,21 @@ def find_position_in_zone(
     best_position = None
     best_score = float('inf')
     
-    for y in range(zone_y, min(zone_y + zone_h - bubble_height + 1, zone_y + zone_h), grid_step):
-        for x in range(zone_x, min(zone_x + zone_w - bubble_width + 1, zone_x + zone_w), grid_step):
-            if is_valid(x, y):
-                # Tính điểm: ưu tiên góc trên trái của zone
-                score = (x - zone_x) ** 2 + (y - zone_y) ** 2
-                if score < best_score:
-                    best_score = score
-                    best_position = (x, y)
+    # Try different margins, from strict to loose
+    margins = [(75, 70), (40, 40), (20, 20), (5, 5)]
     
+    for c_margin, b_margin in margins:
+        for y in range(zone_y, min(zone_y + zone_h - bubble_height + 1, zone_y + zone_h), grid_step):
+            for x in range(zone_x, min(zone_x + zone_w - bubble_width + 1, zone_x + zone_w), grid_step):
+                if is_valid(x, y, c_margin, b_margin):
+                    # Tính điểm: ưu tiên góc trên trái của zone
+                    score = (x - zone_x) ** 2 + (y - zone_y) ** 2
+                    if score < best_score:
+                        best_score = score
+                        best_position = (x, y)
+        if best_position:
+            break
+            
     return best_position
 
 
@@ -369,9 +373,15 @@ def find_bubble_position(
         if position:
             return position
     
-    # Fallback cuối: góc panel
+    # Fallback cuối: góc panel, tránh overlap nếu có thể
     fallback_x = max(panel_x + border_padding, border_padding)
     fallback_y = max(panel_y + border_padding, border_padding)
+    
+    # Check existing bubbles in fallback to avoid exact overlaps
+    for ex, ey, ew, eh in existing_bubbles:
+        if abs(fallback_x - ex) < 20 and abs(fallback_y - ey) < 20:
+            fallback_y = ey + eh + 10  # Stack below existing bubble
+    
     fallback_x = min(fallback_x, page_width - bubble_width - border_padding)
     fallback_y = min(fallback_y, page_height - bubble_height - border_padding)
     
@@ -427,6 +437,12 @@ def sample_bubble_position(
     # Fallback
     fallback_x = max(panel_x + border_padding, border_padding)
     fallback_y = max(panel_y + border_padding, border_padding)
+    
+    # Check existing bubbles in fallback to avoid exact overlaps
+    for ex, ey, ew, eh in existing_bubbles:
+        if abs(fallback_x - ex) < 20 and abs(fallback_y - ey) < 20:
+            fallback_y = ey + eh + 10  # Stack below existing bubble
+            
     fallback_x = min(fallback_x, page_width - bubble_width - border_padding, 
                      panel_x + panel_w - bubble_width - border_padding)
     fallback_y = min(fallback_y, page_height - bubble_height - border_padding,
@@ -493,19 +509,17 @@ def find_character_bounding_box(image: Image.Image) -> Optional[Tuple[int, int, 
         return None
 
 def split_text_into_bubbles(text: str) -> List[str]:
-    """
-    Keep entire dialogue text in ONE bubble.
-    Comic script should already have short, concise dialogue per character.
-    """
-    # Option 1: Never split - one dialogue = one bubble
-    return [text.strip()] if text.strip() else []
+    if not text.strip():
+        return []
     
-    # Option 2: Only split if EXTREMELY long (>100 chars)
-    # if len(text) > 100:
-    #     # Split on sentence endings only
-    #     sentences = re.split(r'(?<=[.!?。！？])\s+', text)
-    #     return [s.strip() for s in sentences if s.strip()]
-    # return [text.strip()] if text.strip() else []
+    import re
+    # Split text into multiple bubbles based on sentence endings.
+    # We want to split on . ! ? but also keep them attached to the sentence.
+    # We use a regex that splits after the punctuation mark.
+    sentences = re.split(r'(?<=[.!?。！？])\s+', text)
+    
+    # Filter empty and return
+    return [s.strip() for s in sentences if s.strip()]
 
 def is_rect_overlapping(
     rect1: Tuple[int, int, int, int],

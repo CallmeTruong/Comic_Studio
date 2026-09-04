@@ -28,7 +28,15 @@ def main():
     
     graph = create_studio_graph()
     
-    user_idea = input("\n[STUDIO] Enter idea for new Chapter (Example: Anna explores an ice cave and speaks Vietnamese): ")
+    import sys
+    if len(sys.argv) > 1:
+        user_idea = " ".join(sys.argv[1:])
+    else:
+        try:
+            user_idea = input("\n[STUDIO] Enter idea for new Chapter (Example: Anna explores an ice cave and speaks Vietnamese): ")
+        except EOFError:
+            user_idea = ""
+            
     if not user_idea.strip():
         user_idea = "Anna khám phá một hang động băng tuyết bí ẩn và tìm thấy một chiếc rương cổ."
         print(f"[STUDIO] Using default idea: {user_idea}")

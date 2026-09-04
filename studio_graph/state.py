@@ -20,6 +20,7 @@ class StudioState(TypedDict):
     # Generation State
     current_page_idx: int
     current_schema: Optional[Dict[str, Any]]
+    previous_schema: Optional[Dict[str, Any]]
     
     # Validation & Feedback
     validation_errors: List[str]

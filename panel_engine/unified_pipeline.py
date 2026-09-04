@@ -161,6 +161,7 @@ def generate_panels_unified(
     controlnet_config: dict | None = None,
     style_name: str | None = None,
     negative_prompt_extra: str | None = None,
+    target_panel_ids: List[str] | None = None,
 ) -> Dict[str, Dict[str, int]]:
     output_panel_path = Path(output_panel_dir)
     output_panel_path.mkdir(parents=True, exist_ok=True)
@@ -233,6 +234,8 @@ def generate_panels_unified(
     style_preset = get_style_preset(style_name)
     
     for idx, panel in enumerate(comic.panels, start=1):
+        if target_panel_ids and panel.id not in target_panel_ids:
+            continue
         panel_width, panel_height = panel_layout_info.get(panel.id, (CONFIG.panel.width, CONFIG.panel.height))
         render_width, render_height = _compute_render_size(
             panel_width,

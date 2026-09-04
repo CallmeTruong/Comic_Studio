@@ -13,11 +13,11 @@ from sentence_transformers import SentenceTransformer
 FONT_ROOT = Path("assets/fonts")
 
 FONT_REGISTRY: Dict[str, Path] = {
-    "actionman": FONT_ROOT / "Action-Man" / "Bangers-Regular.woff2",
+    "actionman": FONT_ROOT / "DigitalStripBB" / "PatrickHand-Regular.woff2",
     "digitalstrip": FONT_ROOT / "DigitalStripBB" / "PatrickHand-Regular.woff2",
     "komika": FONT_ROOT / "Komika-Hand" / "PatrickHandSC-Regular.woff2",
-    "karantula": FONT_ROOT / "Action-Man" / "Bangers-Regular.woff2",
-    "manoskope": FONT_ROOT / "Manoskope" / "DVNFredoka-Bold.woff2",
+    "karantula": FONT_ROOT / "DigitalStripBB" / "PatrickHand-Regular.woff2",
+    "manoskope": FONT_ROOT / "DigitalStripBB" / "PatrickHand-Regular.woff2",
 }
 
 # Semantic description for each font
