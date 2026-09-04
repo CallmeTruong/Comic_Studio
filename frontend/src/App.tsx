@@ -10,6 +10,7 @@ function App() {
   const [activeTab, setActiveTab] = useState('library')
   const [activeSeries, setActiveSeries] = useState('')
   const [activeChapter, setActiveChapter] = useState('')
+  const [activePage, setActivePage] = useState('comic_page_1.png')
 
   // Global Generation State
   const [loading, setLoading] = useState(false)
@@ -48,9 +49,9 @@ function App() {
             const msg = line.substring(6)
             if (msg === '[DONE]') {
               setLoading(false)
-              // Trigger a schema refetch by a small hack or passing a callback
-              // For now, InteractiveCanvasView will fetch if we pass a refresh trigger, 
-              // but we can just let InteractiveCanvasView poll or we pass an onComplete prop.
+            } else if (msg.startsWith('[CANCELLED]')) {
+              setLoading(false)
+              setLogs(prev => [...prev, msg])
             } else {
               setLogs(prev => [...prev, msg])
             }
@@ -66,7 +67,7 @@ function App() {
 
   return (
     <div className="h-screen w-screen flex bg-stone-50 overflow-hidden font-sans text-stone-900 pb-10">
-      <Sidebar activeTab={activeTab} onChangeTab={setActiveTab} />
+      <Sidebar activeTab={activeTab} onChangeTab={setActiveTab} isLocked={!activeSeries || !activeChapter} />
       
       <div className="flex-1 bg-white overflow-hidden relative">
         {activeTab === 'library' && (
@@ -74,19 +75,29 @@ function App() {
             activeSeries={activeSeries} 
             activeChapter={activeChapter} 
             onSelect={handleSelectChapter} 
-            onNavigateToStudio={() => setActiveTab('canvas')}
+            onNextStep={() => setActiveTab('database')}
+            onEditPage={(pageName) => {
+              setActivePage(pageName);
+              setActiveTab('canvas');
+            }}
           />
         )}
         {activeTab === 'canvas' && (
           <InteractiveCanvasView 
             seriesId={activeSeries} 
             chapterId={activeChapter} 
+            pageName={activePage}
             onGenerate={handleGenerate}
             loading={loading}
           />
         )}
         {activeTab === 'settings' && <SettingsView />}
-        {activeTab === 'database' && <DatabaseView activeSeries={activeSeries} />}
+        {activeTab === 'database' && (
+          <DatabaseView 
+            activeSeries={activeSeries} 
+            onNextStep={() => setActiveTab('canvas')} 
+          />
+        )}
       </div>
       
       <GlobalTerminal logs={logs} loading={loading} />

@@ -16,18 +16,19 @@ interface Panel {
 interface InteractiveCanvasProps {
   seriesId: string;
   chapterId: string;
+  pageName: string;
   onGenerate: (prompt: string) => void;
   loading: boolean;
 }
 
-export function InteractiveCanvasView({ seriesId, chapterId, onGenerate, loading }: InteractiveCanvasProps) {
+export function InteractiveCanvasView({ seriesId, chapterId, pageName, onGenerate, loading }: InteractiveCanvasProps) {
   const [schema, setSchema] = useState<{panels: Panel[], layout?: any} | null>(null)
   const [prompt, setPrompt] = useState("Anna khám phá một hang động băng tuyết bí ẩn.")
   const [bubbles, setBubbles] = useState<any[]>([])
 
   const fetchSchema = async () => {
     try {
-      const res = await fetch(`http://localhost:8000/api/schema?series_id=${seriesId}&chapter_id=${chapterId}`)
+      const res = await fetch(`http://localhost:8000/api/schema?series_id=${seriesId}&chapter_id=${chapterId}&page_name=${pageName}`)
       const data = await res.json()
       setSchema(data)
       
@@ -66,7 +67,7 @@ export function InteractiveCanvasView({ seriesId, chapterId, onGenerate, loading
       setSchema(null)
       setBubbles([])
     }
-  }, [seriesId, chapterId, loading]) // Re-fetch schema when loading turns false
+  }, [seriesId, chapterId, pageName, loading]) // Re-fetch schema when loading turns false
 
   const handleUpdateBubbleText = (id: string, newText: string) => {
     setBubbles(prev => prev.map(b => b.id === id ? { ...b, text: newText } : b))
@@ -87,7 +88,7 @@ export function InteractiveCanvasView({ seriesId, chapterId, onGenerate, loading
     await fetch('http://localhost:8000/api/update_bubbles', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ panels: newSchema.panels, series_id: seriesId, chapter_id: chapterId })
+      body: JSON.stringify({ panels: newSchema.panels, series_id: seriesId, chapter_id: chapterId, page_name: pageName })
     })
     
     alert("Đã lưu và render lại Text! Bạn có thể xem ảnh mới.")
@@ -101,7 +102,7 @@ export function InteractiveCanvasView({ seriesId, chapterId, onGenerate, loading
     await fetch('http://localhost:8000/api/regenerate_panel', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ panel_id: panelId, new_prompt: newPrompt, series_id: seriesId, chapter_id: chapterId })
+      body: JSON.stringify({ panel_id: panelId, new_prompt: newPrompt, series_id: seriesId, chapter_id: chapterId, page_name: pageName })
     })
     
     alert(`Đã vẽ lại panel ${panelId}!`)
@@ -121,13 +122,26 @@ export function InteractiveCanvasView({ seriesId, chapterId, onGenerate, loading
           value={prompt}
           onChange={e => setPrompt(e.target.value)}
         />
-        <button 
-          onClick={() => onGenerate(prompt)}
-          disabled={loading || !seriesId || !chapterId}
-          className="mt-4 bg-stone-800 hover:bg-stone-900 text-white font-medium py-3 px-4 rounded-lg shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loading ? 'Đang tạo truyện...' : 'Tạo Truyện'}
-        </button>
+        <div className="mt-4 flex gap-2">
+          <button 
+            onClick={() => onGenerate(prompt)}
+            disabled={loading || !seriesId || !chapterId}
+            className="flex-1 bg-stone-800 hover:bg-stone-900 text-white font-medium py-3 px-4 rounded-lg shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? 'Đang tạo...' : 'Tạo Truyện'}
+          </button>
+          
+          {loading && (
+            <button
+              onClick={async () => {
+                await fetch('http://localhost:8000/api/cancel', { method: 'POST' })
+              }}
+              className="bg-red-500 hover:bg-red-600 text-white font-medium py-3 px-4 rounded-lg shadow-md transition-colors"
+            >
+              Dừng
+            </button>
+          )}
+        </div>
 
         {schema?.panels && (
           <div className="mt-8 flex-1 overflow-y-auto">
@@ -187,7 +201,7 @@ export function InteractiveCanvasView({ seriesId, chapterId, onGenerate, loading
         ) : schema?.panels && schema.panels.length > 0 ? (
           <div ref={containerRef} className="relative w-full max-w-4xl bg-white border border-stone-300 rounded shadow-lg overflow-hidden shrink-0">
             <img 
-              src={`http://localhost:8000/outputs/series/${seriesId}/${chapterId}/comic_page_1.png?t=${new Date().getTime()}`} 
+              src={`http://localhost:8000/outputs/series/${seriesId}/${chapterId}/${pageName}?t=${new Date().getTime()}`} 
               alt="Comic Page" 
               className="w-full block" 
             />

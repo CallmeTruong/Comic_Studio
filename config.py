@@ -119,4 +119,31 @@ class Config:
         if self.panel is None:
             self.panel = PanelConfig()
 
+    def to_dict(self):
+        import dataclasses
+        return dataclasses.asdict(self)
+
+    def from_dict(self, data: dict):
+        if 'paths' in data:
+            for k, v in data['paths'].items():
+                if hasattr(self.paths, k): setattr(self.paths, k, v)
+        if 'models' in data:
+            for k, v in data['models'].items():
+                if hasattr(self.models, k): setattr(self.models, k, v)
+        if 'quality' in data:
+            for k, v in data['quality'].items():
+                if hasattr(self.quality, k): setattr(self.quality, k, v)
+        if 'story' in data:
+            for k, v in data['story'].items():
+                if hasattr(self.story, k): setattr(self.story, k, v)
+        if 'style' in data:
+            for k, v in data['style'].items():
+                if hasattr(self.style, k): setattr(self.style, k, v)
+        if 'page' in data:
+            for k, v in data['page'].items():
+                if hasattr(self.page, k): setattr(self.page, k, v)
+        if 'panel' in data:
+            for k, v in data['panel'].items():
+                if hasattr(self.panel, k): setattr(self.panel, k, v)
+
 CONFIG = Config()

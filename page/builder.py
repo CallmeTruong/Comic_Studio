@@ -244,7 +244,8 @@ def build_comic_page(
     
     # Save panel positions
     if schema_path:
-        pos_path = Path(schema_path).parent / "page_layout.json"
+        layout_filename = Path(schema_path).name.replace('story', 'page_layout')
+        pos_path = Path(schema_path).parent / layout_filename
         import json
         with open(pos_path, "w", encoding="utf-8") as f:
             json.dump({

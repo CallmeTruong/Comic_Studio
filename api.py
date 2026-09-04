@@ -16,6 +16,8 @@ from pydantic import BaseModel
 from studio_graph.graph import create_studio_graph
 from config import CONFIG
 
+CANCEL_REQUESTED = False
+
 app = FastAPI()
 
 app.add_middleware(
@@ -141,6 +143,8 @@ class GenerateRequest(BaseModel):
 
 @app.post("/api/generate")
 async def generate_comic(req: GenerateRequest):
+    global CANCEL_REQUESTED
+    CANCEL_REQUESTED = False
     base_dir, out_dir = setup_paths(req.series_id, req.chapter_id)
     
     async def event_generator():
@@ -168,6 +172,9 @@ async def generate_comic(req: GenerateRequest):
             }
             
             for event in graph.stream(initial_state, config):
+                if CANCEL_REQUESTED:
+                    yield "data: [CANCELLED] Quá trình tạo đã bị dừng.\n\n"
+                    break
                 for k, v in event.items():
                     yield f"data: ✅ Hoàn thành Node: {k}\n\n"
                     await asyncio.sleep(0.1)
@@ -180,10 +187,11 @@ async def generate_comic(req: GenerateRequest):
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 @app.get("/api/schema")
-async def get_schema(series_id: str = "default", chapter_id: str = "chapter_1"):
-    base_dir, _ = setup_paths(series_id, chapter_id)
-    schema_path = f"{base_dir}/story.json"
-    layout_path = f"{base_dir}/page_layout.json"
+async def get_schema(series_id: str = "default", chapter_id: str = "chapter_1", page_name: str = "comic_page_1.png"):
+    _, out_dir = setup_paths(series_id, chapter_id)
+    idx = page_name.replace("comic_page_", "").replace(".png", "")
+    schema_path = f"{out_dir}/story_{idx}.json"
+    layout_path = f"{out_dir}/page_layout_{idx}.json"
     
     if not os.path.exists(schema_path):
         return {"panels": [], "layout": []}
@@ -203,11 +211,13 @@ class UpdateBubblesRequest(BaseModel):
     panels: list
     series_id: str
     chapter_id: str
+    page_name: str = "comic_page_1.png"
 
 @app.post("/api/update_bubbles")
 async def update_bubbles(req: UpdateBubblesRequest):
-    base_dir, out_dir = setup_paths(req.series_id, req.chapter_id)
-    schema_path = f"{base_dir}/story.json"
+    _, out_dir = setup_paths(req.series_id, req.chapter_id)
+    idx = req.page_name.replace("comic_page_", "").replace(".png", "")
+    schema_path = f"{out_dir}/story_{idx}.json"
     
     with open(schema_path, "r", encoding="utf-8") as f:
         schema = json.load(f)
@@ -223,7 +233,7 @@ async def update_bubbles(req: UpdateBubblesRequest):
     resolved_layout = select_layout_name(len(schema["panels"]), preferred=CONFIG.story.layout_name)
     build_comic_page(
         panels_dir=CONFIG.paths.panel_dir,
-        output_path=f"{out_dir}/comic_page_1.png",
+        output_path=f"{out_dir}/{req.page_name}",
         schema_path=schema_path,
         inject_bubbles=True,
         use_adaptive_layout=True,
@@ -237,11 +247,13 @@ class RegeneratePanelRequest(BaseModel):
     new_prompt: str
     series_id: str
     chapter_id: str
+    page_name: str = "comic_page_1.png"
     
 @app.post("/api/regenerate_panel")
 async def regenerate_panel(req: RegeneratePanelRequest):
-    base_dir, out_dir = setup_paths(req.series_id, req.chapter_id)
-    schema_path = f"{base_dir}/story.json"
+    _, out_dir = setup_paths(req.series_id, req.chapter_id)
+    idx = req.page_name.replace("comic_page_", "").replace(".png", "")
+    schema_path = f"{out_dir}/story_{idx}.json"
     
     with open(schema_path, "r", encoding="utf-8") as f:
         schema = json.load(f)
@@ -279,7 +291,7 @@ async def regenerate_panel(req: RegeneratePanelRequest):
     
     build_comic_page(
         panels_dir=CONFIG.paths.panel_dir,
-        output_path=f"{out_dir}/comic_page_1.png",
+        output_path=f"{out_dir}/{req.page_name}",
         schema_path=schema_path,
         inject_bubbles=True,
         use_adaptive_layout=True,
@@ -299,34 +311,7 @@ def scan_loras():
         loras.append(file.replace("\\", "/"))
     return loras
 
-@app.get("/api/config")
-async def get_config():
-    return {
-        "models": ["SDv1.5", "SDXL", "Flux"],
-        "current_model": "SDv1.5",
-        "lora_path": CONFIG.models.lora_path,
-        "lora_scale": CONFIG.models.lora_scale,
-        "guidance_scale": CONFIG.models.guidance_scale,
-        "layout": CONFIG.story.layout_name,
-        "quality_mode": CONFIG.quality.mode,
-        "available_loras": scan_loras()
-    }
 
-class ConfigUpdateRequest(BaseModel):
-    lora_path: str
-    lora_scale: float
-    guidance_scale: float
-    layout: str
-    quality_mode: str
-
-@app.post("/api/config")
-async def update_config(req: ConfigUpdateRequest):
-    CONFIG.models.lora_path = req.lora_path
-    CONFIG.models.lora_scale = req.lora_scale
-    CONFIG.models.guidance_scale = req.guidance_scale
-    CONFIG.story.layout_name = req.layout
-    CONFIG.quality.mode = req.quality_mode
-    return {"status": "success"}
 
 @app.get("/api/database/characters")
 async def get_characters(series_id: str):
@@ -350,7 +335,30 @@ async def create_character(req: CreateCharacterRequest):
     upsert_character(req.series_id, req.dict())
     return {"status": "success"}
 
+@app.delete("/api/database/characters/{char_id}")
+async def delete_character(char_id: str, series_id: str):
+    from database.sqlite_db import delete_character as db_delete_character
+    db_delete_character(series_id, char_id)
+    return {"status": "success"}
+
+
+@app.post("/api/cancel")
+async def cancel_generation():
+    global CANCEL_REQUESTED
+    CANCEL_REQUESTED = True
+    return {"status": "success", "message": "Đã gửi yêu cầu dừng."}
+
+@app.get("/api/config")
+async def get_config():
+    return CONFIG.to_dict()
+
+@app.post("/api/config")
+async def update_config(request: Request):
+    data = await request.json()
+    CONFIG.from_dict(data)
+    return {"status": "success", "config": CONFIG.to_dict()}
 
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+

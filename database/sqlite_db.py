@@ -69,6 +69,14 @@ def get_character(series_id: str, char_id: str):
         }
     return None
 
+def delete_character(series_id: str, char_id: str):
+    init_db(series_id)
+    conn = sqlite3.connect(get_db_path(series_id))
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM characters WHERE id=?", (char_id,))
+    conn.commit()
+    conn.close()
+
 def upsert_character(series_id: str, char_data: dict):
     init_db(series_id)
     conn = sqlite3.connect(get_db_path(series_id))

@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react'
-import { Library, Folder, BookOpen, Plus, Search, Image as ImageIcon, Trash2, Maximize2, ExternalLink, RefreshCw } from 'lucide-react'
+import { Library, Folder, BookOpen, Plus, Search, Image as ImageIcon, Trash2, Maximize2, ExternalLink, RefreshCw, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface LibraryViewProps {
   activeSeries: string;
   activeChapter: string;
   onSelect: (series: string, chapter: string) => void;
-  onNavigateToStudio: () => void;
+  onNextStep: () => void;
+  onEditPage?: (pageName: string) => void;
 }
 
-export function LibraryView({ activeSeries, activeChapter, onSelect, onNavigateToStudio }: LibraryViewProps) {
+export function LibraryView({ activeSeries, activeChapter, onSelect, onNextStep, onEditPage }: LibraryViewProps) {
   const [seriesList, setSeriesList] = useState<any[]>([])
   const [showCreateSeries, setShowCreateSeries] = useState(false)
   const [showCreateChapter, setShowCreateChapter] = useState(false)
@@ -190,11 +191,10 @@ export function LibraryView({ activeSeries, activeChapter, onSelect, onNavigateT
                   <span className="text-sm font-medium">Làm mới</span>
                 </button>
                 <button 
-                  onClick={onNavigateToStudio}
-                  className="bg-stone-900 hover:bg-stone-800 text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors flex items-center gap-2 shadow-sm"
+                  onClick={() => { onSelect(activeSeries, activeChapter); onNextStep() }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-bold text-sm transition-colors flex items-center gap-2 shadow-sm"
                 >
-                  <ExternalLink size={16} />
-                  Mở Studio
+                  Tiếp tục: Cấu hình Nhân vật <ExternalLink size={16} />
                 </button>
               </div>
             </div>
@@ -227,7 +227,7 @@ export function LibraryView({ activeSeries, activeChapter, onSelect, onNavigateT
                           <button onClick={(e) => { e.stopPropagation(); setPreviewImage(`http://localhost:8000/outputs/series/${activeSeries}/${activeChapter}/${file}?t=${Date.now()}`) }} className="p-2 bg-white rounded-full text-stone-900 hover:scale-110 transition-transform" title="Xem ảnh">
                             <Maximize2 size={16} />
                           </button>
-                          <button onClick={(e) => { e.stopPropagation(); onNavigateToStudio() }} className="p-2 bg-white rounded-full text-stone-900 hover:scale-110 transition-transform" title="Mở Studio Edit">
+                          <button onClick={(e) => { e.stopPropagation(); onSelect(activeSeries, activeChapter); if(onEditPage) onEditPage(file); else onNextStep(); }} className="p-2 bg-white rounded-full text-stone-900 hover:scale-110 transition-transform" title="Chỉnh sửa trong Studio">
                             <ExternalLink size={16} />
                           </button>
                           <button onClick={(e) => { e.stopPropagation(); handleDeleteFile(file, false) }} className="p-2 bg-red-500 rounded-full text-white hover:scale-110 transition-transform" title="Xóa ảnh">

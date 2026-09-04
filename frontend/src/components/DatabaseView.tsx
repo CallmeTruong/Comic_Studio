@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
-import { Database, User, Plus, RefreshCw, X } from 'lucide-react'
+import { Database, User, Plus, RefreshCw, X, Trash2, Edit } from 'lucide-react'
 
 interface DatabaseViewProps {
   activeSeries: string;
+  onNextStep?: () => void;
 }
 
-export function DatabaseView({ activeSeries }: DatabaseViewProps) {
+export function DatabaseView({ activeSeries, onNextStep }: DatabaseViewProps) {
   const [characters, setCharacters] = useState<any[]>([])
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({
@@ -20,6 +21,31 @@ export function DatabaseView({ activeSeries }: DatabaseViewProps) {
     const res = await fetch(`http://localhost:8000/api/database/characters?series_id=${activeSeries}`)
     const data = await res.json()
     setCharacters(data.characters)
+  }
+
+  const handleDelete = async (charId: string) => {
+    if (!window.confirm("Bạn có chắc chắn muốn xóa nhân vật này?")) return;
+    try {
+      await fetch(`http://localhost:8000/api/database/characters/${charId}?series_id=${activeSeries}`, {
+        method: 'DELETE'
+      })
+      fetchCharacters()
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  const handleEdit = (char: any) => {
+    setForm({
+      id: char.id,
+      name: char.name,
+      age: char.age,
+      personality: char.personality,
+      base_prompt_en: char.base_prompt_en,
+      seed: char.seed || 42,
+      inventory: char.inventory ? char.inventory.join(', ') : ''
+    })
+    setShowForm(true)
   }
 
   useEffect(() => {
@@ -63,21 +89,34 @@ export function DatabaseView({ activeSeries }: DatabaseViewProps) {
       <div className="flex justify-between items-center mb-8 border-b border-stone-200 pb-4 shrink-0">
         <div>
           <h2 className="text-2xl font-light tracking-tight text-stone-900 flex items-center gap-3">
-            <Database size={28} className="text-stone-500" />
-            Lorebook
-          </h2>
-          <div className="text-stone-500 text-sm mt-1 flex items-center gap-2">
-            Đang hiển thị dữ liệu của <span className="font-bold text-stone-800 bg-stone-200 px-2 py-0.5 rounded">{activeSeries}</span>
-          </div>
+          <Database size={28} className="text-stone-500" />
+          Lorebook <span className="text-stone-400">|</span> <span className="text-stone-500 font-medium text-lg">{activeSeries || 'Chưa chọn truyện'}</span>
+        </h2>
         </div>
-        
-        <button 
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 bg-stone-900 hover:bg-stone-800 text-white font-medium py-2 px-4 rounded-lg shadow-sm transition-all"
-        >
-          <Plus size={18} />
-          Tạo nhân vật
-        </button>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={fetchCharacters}
+            className="p-2 text-stone-500 hover:text-stone-900 hover:bg-stone-200 rounded-lg transition-colors"
+            title="Làm mới"
+          >
+            <RefreshCw size={20} />
+          </button>
+          <button 
+            onClick={() => setShowForm(true)}
+            className="flex items-center gap-2 bg-stone-900 hover:bg-stone-800 text-white font-medium py-2 px-4 rounded-lg shadow-sm transition-colors"
+          >
+            <Plus size={18} />
+            Thêm Nhân Vật
+          </button>
+          {onNextStep && (
+            <button 
+              onClick={onNextStep}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg shadow-sm transition-colors ml-2"
+            >
+              Tiếp tục: Mở Studio
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -101,7 +140,15 @@ export function DatabaseView({ activeSeries }: DatabaseViewProps) {
               }
 
               return (
-                <div key={char.id} className="bg-white p-6 rounded-xl border border-stone-200 shadow-sm hover:shadow-md transition-shadow flex gap-6">
+                <div key={char.id} className="group bg-white p-6 rounded-xl border border-stone-200 shadow-sm hover:shadow-md transition-shadow flex gap-6 relative">
+                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+                    <button onClick={() => handleEdit(char)} className="p-1.5 bg-white text-stone-600 rounded-lg hover:bg-stone-100 shadow-sm border border-stone-200" title="Chỉnh sửa">
+                      <Edit size={16} />
+                    </button>
+                    <button onClick={() => handleDelete(char.id)} className="p-1.5 bg-white text-red-500 rounded-lg hover:bg-red-50 shadow-sm border border-stone-200" title="Xóa">
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                   <div className="w-24 h-24 rounded-full bg-stone-100 border border-stone-200 flex items-center justify-center shrink-0">
                     <User size={40} className="text-stone-400" />
                   </div>

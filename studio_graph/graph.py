@@ -17,7 +17,9 @@ from database.vector_db import add_story_event
 def run_renderer(state: StudioState) -> StudioState:
     print("\n[RENDERER] Booting Stable Diffusion...")
     schema = state["current_schema"]
-    schema_path = Path("data/base/schema/story.json")
+    page_idx = state["current_page_idx"]
+    out_dir = Path(CONFIG.paths.panel_dir).parent
+    schema_path = out_dir / f"story_{page_idx+1}.json"
     schema_path.parent.mkdir(parents=True, exist_ok=True)
     
     with open(schema_path, "w", encoding="utf-8") as f:
@@ -50,8 +52,6 @@ def run_renderer(state: StudioState) -> StudioState:
         
     # BUILD PAGE
     print("[RENDERER] Building Page and injecting bubbles...")
-    page_idx = state["current_page_idx"]
-    out_dir = Path(CONFIG.paths.panel_dir).parent
     output_path = str(out_dir / f"comic_page_{page_idx+1}.png")
     
     build_comic_page(
