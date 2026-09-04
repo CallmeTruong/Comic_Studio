@@ -74,7 +74,7 @@ LAYOUT_SETTINGS: Dict[str, List[Dict]] = {
 GRID_CONFIGS: Dict[str, Dict] = {
     "Layout2Panels": {"cols": 2, "rows": 1},
     "Layout2PanelsWide": {"cols": 2, "rows": 2},
-    "Layout3Panels": {"cols": 3, "rows": 1},
+    "Layout3Panels": {"cols": 1, "rows": 3},
     "Layout3PanelsMixed": {"cols": 2, "rows": 2},
     "Layout0": {"cols": 2, "rows": 2},
     "Layout1": {"cols": 2, "rows": 4},

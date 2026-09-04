@@ -386,4 +386,13 @@ def generate_panels_unified(
 
         panel_sizes[panel.id] = {"width": panel_width, "height": panel_height}
 
+    # FREE VRAM
+    print("[UNIFIED] Freeing Stable Diffusion VRAM...")
+    del sd_model
+    import torch
+    import gc
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
     return panel_sizes

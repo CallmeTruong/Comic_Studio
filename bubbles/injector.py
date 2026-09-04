@@ -441,8 +441,13 @@ def find_character_bounding_box(image: Image.Image) -> Optional[Tuple[int, int, 
         return bbox
 
     try:
-        from rembg import remove
+        from rembg import remove, new_session
         import io
+
+        global _REMBG_SESSION
+        if '_REMBG_SESSION' not in globals():
+            print("[BUBBLE] Initializing rembg session (runs only once)...")
+            _REMBG_SESSION = new_session("u2net")
 
         # Downscale image to avoid ONNX OOM on high-res panels
         original_width, original_height = image.size
@@ -459,7 +464,7 @@ def find_character_bounding_box(image: Image.Image) -> Optional[Tuple[int, int, 
         process_image.save(img_bytes, format="PNG")
         img_bytes.seek(0)
 
-        output_bytes = remove(img_bytes.getvalue())
+        output_bytes = remove(img_bytes.getvalue(), session=_REMBG_SESSION)
         mask_image = Image.open(io.BytesIO(output_bytes)).convert("RGBA")
         mask_array = np.array(mask_image.split()[3])
 
