@@ -18,6 +18,14 @@ def run_renderer(state: StudioState) -> StudioState:
     print("\n[RENDERER] Booting Stable Diffusion...")
     schema = state["current_schema"]
     page_idx = state["current_page_idx"]
+    
+    # FIX: Prefix panel IDs with page number to prevent overwriting previous pages
+    if "panels" in schema:
+        for i, p in enumerate(schema["panels"]):
+            old_id = p.get("id", f"panel_{i+1}")
+            if not old_id.startswith(f"page_{page_idx+1}_"):
+                p["id"] = f"page_{page_idx+1}_{old_id}"
+                
     out_dir = Path(CONFIG.paths.panel_dir).parent
     schema_path = out_dir / f"story_{page_idx+1}.json"
     schema_path.parent.mkdir(parents=True, exist_ok=True)
@@ -82,7 +90,7 @@ def run_renderer(state: StudioState) -> StudioState:
     state["next_step"] = "storyboarder"
     return state
 
-def create_studio_graph():
+def create_studio_graph(checkpointer=None):
     workflow = StateGraph(StudioState)
     
     # Nodes
@@ -121,5 +129,8 @@ def create_studio_graph():
         "storyboarder": "storyboarder"
     })
     
-    checkpointer = MemorySaver()
-    return workflow.compile(checkpointer=checkpointer)
+    if checkpointer is None:
+        from langgraph.checkpoint.memory import MemorySaver
+        checkpointer = MemorySaver()
+        
+    return workflow.compile(checkpointer=checkpointer, interrupt_before=["renderer"])

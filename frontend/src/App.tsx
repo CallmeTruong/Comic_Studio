@@ -14,6 +14,8 @@ function App() {
 
   // Global Generation State
   const [loading, setLoading] = useState(false)
+  const [isWaitingApproval, setIsWaitingApproval] = useState(false)
+  const [draftSchema, setDraftSchema] = useState<any>(null)
   const [logs, setLogs] = useState<string[]>([])
 
   const handleSelectChapter = (series: string, chapter: string) => {
@@ -48,7 +50,18 @@ function App() {
           if (line.startsWith('data: ')) {
             const msg = line.substring(6)
             if (msg === '[DONE]') {
+              // Only clear loading if we are not waiting for approval
               setLoading(false)
+            } else if (msg.startsWith('[SCHEMA_READY]')) {
+              const schemaStr = msg.substring(14).trim()
+              try {
+                setDraftSchema(JSON.parse(schemaStr))
+              } catch(e) {
+                console.error("Failed to parse schema", e)
+              }
+              setIsWaitingApproval(true)
+              setLoading(false)
+              setLogs(prev => [...prev, "✅ Đã tạo xong kịch bản, vui lòng xác nhận!"])
             } else if (msg.startsWith('[CANCELLED]')) {
               setLoading(false)
               setLogs(prev => [...prev, msg])
@@ -61,6 +74,60 @@ function App() {
     } catch (e) {
       console.error(e)
       setLogs(prev => [...prev, "❌ Error generating comic"])
+      setLoading(false)
+    }
+  }
+
+  const handleResume = async () => {
+    if (!activeSeries || !activeChapter) return
+    setLoading(true)
+    setLogs(["[SYSTEM] Khôi phục kết nối với AI..."])
+    
+    try {
+      const response = await fetch('http://localhost:8000/api/resume', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ series_id: activeSeries, chapter_id: activeChapter })
+      })
+      
+      if (!response.body) return
+      
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      
+      while (true) {
+        const { value, done } = await reader.read()
+        if (done) break
+        const text = decoder.decode(value)
+        
+        const lines = text.split('\n')
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const msg = line.substring(6)
+            if (msg === '[DONE]') {
+              setLoading(false)
+            } else if (msg.startsWith('[SCHEMA_READY]')) {
+              const schemaStr = msg.substring(14).trim()
+              try {
+                setDraftSchema(JSON.parse(schemaStr))
+              } catch(e) {
+                console.error("Failed to parse schema", e)
+              }
+              setIsWaitingApproval(true)
+              setLoading(false)
+              setLogs(prev => [...prev, "✅ Đã tạo xong kịch bản, vui lòng xác nhận!"])
+            } else if (msg.startsWith('[CANCELLED]')) {
+              setLoading(false)
+              setLogs(prev => [...prev, msg])
+            } else {
+              setLogs(prev => [...prev, msg])
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.error(e)
+      setLogs(prev => [...prev, "❌ Error resuming comic"])
       setLoading(false)
     }
   }
@@ -88,7 +155,12 @@ function App() {
             chapterId={activeChapter} 
             pageName={activePage}
             onGenerate={handleGenerate}
+            onResume={handleResume}
             loading={loading}
+            isWaitingApproval={isWaitingApproval}
+            setIsWaitingApproval={setIsWaitingApproval}
+            setLogs={setLogs}
+            draftSchema={draftSchema}
           />
         )}
         {activeTab === 'settings' && <SettingsView />}

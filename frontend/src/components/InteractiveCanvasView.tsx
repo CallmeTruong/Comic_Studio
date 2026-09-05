@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Bubble } from './Bubble'
-import { RefreshCw, Save } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 
 interface Panel {
   id: string;
@@ -18,81 +17,104 @@ interface InteractiveCanvasProps {
   chapterId: string;
   pageName: string;
   onGenerate: (prompt: string) => void;
+  onResume: () => void;
   loading: boolean;
+  isWaitingApproval?: boolean;
+  setIsWaitingApproval?: (val: boolean) => void;
+  setLogs?: (val: any) => void;
+  draftSchema?: any;
 }
 
-export function InteractiveCanvasView({ seriesId, chapterId, pageName, onGenerate, loading }: InteractiveCanvasProps) {
+export function InteractiveCanvasView({ seriesId, chapterId, pageName, onGenerate, onResume, loading, isWaitingApproval, setIsWaitingApproval, setLogs, draftSchema }: InteractiveCanvasProps) {
   const [schema, setSchema] = useState<{panels: Panel[], layout?: any} | null>(null)
   const [prompt, setPrompt] = useState("Anna khám phá một hang động băng tuyết bí ẩn.")
-  const [bubbles, setBubbles] = useState<any[]>([])
+  const [hasCharacters, setHasCharacters] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    if (seriesId) {
+      fetch(`http://localhost:8000/api/database/characters?series_id=${seriesId}`)
+        .then(res => res.json())
+        .then(data => {
+          setHasCharacters(data.characters && data.characters.length > 0)
+        })
+    }
+  }, [seriesId, chapterId])
 
   const fetchSchema = async () => {
     try {
       const res = await fetch(`http://localhost:8000/api/schema?series_id=${seriesId}&chapter_id=${chapterId}&page_name=${pageName}`)
       const data = await res.json()
       setSchema(data)
-      
-      if (data && data.panels && data.layout && data.layout.panels) {
-        const newBubbles: any[] = []
-        data.panels.forEach((p: Panel, pIdx: number) => {
-          const rect = data.layout.panels[pIdx]
-          if (rect) {
-            const [px, py, pw, ph] = rect
-            p.dialogues.forEach((d, dIdx) => {
-              newBubbles.push({
-                id: `${p.id}_bubble_${dIdx}`,
-                panelId: p.id,
-                text: d.text,
-                x: (px / data.layout.page_width) * 100 + 5, // 5% offset
-                y: (py / data.layout.page_height) * 100 + 5 + (dIdx * 10), // offset by index
-                width: 150, 
-                height: 80 
-              })
-            })
-          }
-        })
-        setBubbles(newBubbles)
-      } else {
-        setBubbles([])
-      }
     } catch (e) {
       console.error(e)
     }
   }
 
+  if (hasCharacters === false) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center bg-stone-50 h-full p-8">
+         <div className="bg-white p-10 rounded-2xl shadow-xl border border-red-200 text-center max-w-md">
+           <h3 className="text-2xl font-bold text-red-600 mb-4">Vũ trụ trống rỗng!</h3>
+           <p className="text-stone-600 mb-6">Bạn chưa tạo nhân vật nào trong Lorebook. Bạn cần tạo ít nhất 1 nhân vật để AI có thể hiểu bối cảnh và viết kịch bản chính xác.</p>
+           <p className="text-stone-500 text-sm font-medium">👉 Hãy sang tab "Quản Lý Dữ Liệu" ở thanh bên trái để bắt đầu!</p>
+         </div>
+      </div>
+    )
+  }
+
   useEffect(() => {
-    if (seriesId && chapterId) {
+    if (isWaitingApproval && draftSchema) {
+      setSchema(draftSchema)
+    } else if (seriesId && chapterId) {
       fetchSchema()
     } else {
       setSchema(null)
-      setBubbles([])
     }
-  }, [seriesId, chapterId, pageName, loading]) // Re-fetch schema when loading turns false
+  }, [seriesId, chapterId, pageName, loading, isWaitingApproval, draftSchema])
 
-  const handleUpdateBubbleText = (id: string, newText: string) => {
-    setBubbles(prev => prev.map(b => b.id === id ? { ...b, text: newText } : b))
-  }
-
-  const handleSaveAndRender = async () => {
-    if (!schema) return
-    const newSchema = { ...schema }
-    newSchema.panels = newSchema.panels.map(p => {
-      const pBubbles = bubbles.filter(b => b.panelId === p.id)
-      const newDialogues = pBubbles.map(b => ({
-        character: p.dialogues.find(d => d.text === b.text)?.character || 'unknown',
-        text: b.text
-      }))
-      return { ...p, dialogues: newDialogues }
-    })
+  const handleRenderPage = async () => {
+    if (!schema || !setIsWaitingApproval || !setLogs) return
+    setIsWaitingApproval(false)
+    setLogs((prev: any) => [...prev, "[STUDIO] Bắt đầu quá trình vẽ trang..."])
     
-    await fetch('http://localhost:8000/api/update_bubbles', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ panels: newSchema.panels, series_id: seriesId, chapter_id: chapterId, page_name: pageName })
-    })
-    
-    alert("Đã lưu và render lại Text! Bạn có thể xem ảnh mới.")
-    fetchSchema()
+    try {
+      const response = await fetch('http://localhost:8000/api/render_page', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          series_id: seriesId, 
+          chapter_id: chapterId, 
+          panels: schema.panels 
+        })
+      })
+      if (!response.body) return
+      
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      
+      while (true) {
+        const { value, done } = await reader.read()
+        if (done) break
+        const text = decoder.decode(value)
+        const lines = text.split('\n')
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const msg = line.substring(6)
+            if (msg === '[DONE]') {
+              // done
+            } else if (msg.startsWith('[SCHEMA_READY]')) {
+              setIsWaitingApproval(true)
+              setLogs((prev: any) => [...prev, "✅ Đã tạo xong kịch bản trang tiếp theo, vui lòng xác nhận!"])
+            } else {
+              setLogs((prev: any) => [...prev, msg])
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.error(e)
+      setLogs((prev: any) => [...prev, "❌ Error rendering comic"])
+    }
   }
 
   const handleRegeneratePanel = async (panelId: string, newPrompt: string) => {
@@ -122,23 +144,32 @@ export function InteractiveCanvasView({ seriesId, chapterId, pageName, onGenerat
           value={prompt}
           onChange={e => setPrompt(e.target.value)}
         />
-        <div className="mt-4 flex gap-2">
-          <button 
-            onClick={() => onGenerate(prompt)}
-            disabled={loading || !seriesId || !chapterId}
-            className="flex-1 bg-stone-800 hover:bg-stone-900 text-white font-medium py-3 px-4 rounded-lg shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? 'Đang tạo...' : 'Tạo Truyện'}
-          </button>
+        <div className="mt-4 flex flex-col gap-2">
+          <div className="flex gap-2">
+            <button 
+              onClick={() => onGenerate(prompt)}
+              disabled={loading || !seriesId || !chapterId}
+              className="flex-1 bg-stone-800 hover:bg-stone-900 text-white font-medium py-3 px-4 rounded-lg shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Đang tạo...' : 'Tạo Truyện Mới'}
+            </button>
+            <button 
+              onClick={() => onResume()}
+              disabled={loading || !seriesId || !chapterId}
+              className="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-medium py-3 px-4 rounded-lg shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Tiếp Tục (Resume)
+            </button>
+          </div>
           
           {loading && (
             <button
               onClick={async () => {
                 await fetch('http://localhost:8000/api/cancel', { method: 'POST' })
               }}
-              className="bg-red-500 hover:bg-red-600 text-white font-medium py-3 px-4 rounded-lg shadow-md transition-colors"
+              className="w-full bg-red-500 hover:bg-red-600 text-white font-medium py-3 px-4 rounded-lg shadow-md transition-colors"
             >
-              Dừng
+              Dừng khẩn cấp
             </button>
           )}
         </div>
@@ -165,6 +196,27 @@ export function InteractiveCanvasView({ seriesId, chapterId, pageName, onGenerat
                       rows={3}
                     />
                   </div>
+                  
+                  {p.dialogues && p.dialogues.length > 0 && (
+                    <div className="mt-3">
+                      <div className="text-xs font-semibold text-stone-400 uppercase mb-1">Lời thoại:</div>
+                      {p.dialogues.map((d, dIdx) => (
+                        <div key={dIdx} className="mb-2">
+                          <span className="text-xs font-bold text-stone-600">{d.character}:</span>
+                          <textarea 
+                            className="w-full p-2 border border-stone-200 rounded text-xs bg-stone-50 focus:outline-none focus:border-stone-400 focus:bg-white transition-colors mt-1"
+                            value={d.text}
+                            onChange={e => {
+                              const newPanels = [...schema.panels]
+                              newPanels[idx].dialogues[dIdx].text = e.target.value
+                              setSchema({...schema, panels: newPanels})
+                            }}
+                            rows={2}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -183,20 +235,26 @@ export function InteractiveCanvasView({ seriesId, chapterId, pageName, onGenerat
               </div>
             )}
           </div>
-          {schema?.panels && (
-            <button 
-              onClick={handleSaveAndRender}
-              className="flex items-center gap-2 bg-white hover:bg-stone-50 text-stone-800 font-medium py-2 px-4 rounded-lg border border-stone-300 shadow-sm transition-all active:bg-stone-100"
-            >
-              <Save size={18} /> Lưu Text
-            </button>
-          )}
         </div>
         
         {(!seriesId || !chapterId) ? (
           <div className="m-auto text-stone-400 text-lg flex flex-col items-center gap-4 mt-20">
             <RefreshCw size={48} className="opacity-20" />
             Vui lòng chọn Bộ Truyện và Chapter trong thư viện.
+          </div>
+        ) : isWaitingApproval ? (
+          <div className="m-auto flex flex-col items-center justify-center bg-white p-8 rounded-xl shadow-lg border border-stone-200 max-w-lg text-center mt-20">
+            <h3 className="text-xl font-bold text-stone-800 mb-2">Đã tạo xong kịch bản trang</h3>
+            <p className="text-stone-600 mb-6 text-sm">
+              Hãy kiểm tra và chỉnh sửa lại Prompt vẽ cùng với Lời thoại ở cột bên trái cho phù hợp.
+              Khi đã ưng ý, hãy bấm Xác nhận để hệ thống bắt đầu vẽ ảnh cho trang này.
+            </p>
+            <button 
+              onClick={handleRenderPage}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg shadow-md transition-colors w-full"
+            >
+              Xác nhận & Vẽ ảnh
+            </button>
           </div>
         ) : schema?.panels && schema.panels.length > 0 ? (
           <div ref={containerRef} className="relative w-full max-w-4xl bg-white border border-stone-300 rounded shadow-lg overflow-hidden shrink-0">
@@ -239,25 +297,6 @@ export function InteractiveCanvasView({ seriesId, chapterId, pageName, onGenerat
                   </div>
                 );
               })}
-            </div>
-
-            {/* Bubbles on Top Layer */}
-            <div className="absolute inset-0 pointer-events-none z-20">
-              {bubbles.map(bubble => (
-                <Bubble 
-                  key={bubble.id} 
-                  text={bubble.text}
-                  x={bubble.x}
-                  y={bubble.y}
-                  width={bubble.width}
-                  height={bubble.height}
-                  parentRef={containerRef}
-                  onChange={(newText) => handleUpdateBubbleText(bubble.id, newText)} 
-                  onDragStop={(x, y) => {
-                    setBubbles(prev => prev.map(b => b.id === bubble.id ? { ...b, x, y } : b))
-                  }}
-                />
-              ))}
             </div>
           </div>
         ) : (

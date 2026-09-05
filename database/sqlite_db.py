@@ -108,6 +108,43 @@ def get_all_characters(series_id: str):
     conn.close()
     return [{"id": r[0], "name": r[1], "personality": r[2], "inventory": json.loads(r[3]), "base_prompt_en": r[4], "seed": r[5], "age": r[6]} for r in rows]
 
+# --- SETTINGS ---
+def get_settings(series_id: str):
+    init_db(series_id)
+    conn = sqlite3.connect(get_db_path(series_id))
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, name, description, background_seed FROM settings")
+    rows = cursor.fetchall()
+    conn.close()
+    return [{"id": r[0], "name": r[1], "description": r[2], "background_seed": r[3]} for r in rows]
+
+def upsert_setting(series_id: str, setting_data: dict):
+    init_db(series_id)
+    conn = sqlite3.connect(get_db_path(series_id))
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO settings (id, name, description, background_seed)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+            name=excluded.name,
+            description=excluded.description,
+            background_seed=excluded.background_seed
+    ''', (
+        setting_data["id"], setting_data["name"], setting_data.get("description", ""), int(setting_data.get("background_seed", 42))
+    ))
+    conn.commit()
+    conn.close()
+
+def delete_setting(series_id: str, setting_id: str):
+    init_db(series_id)
+    conn = sqlite3.connect(get_db_path(series_id))
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM settings WHERE id=?", (setting_id,))
+    conn.commit()
+    conn.close()
+
+# --- HOOKS ---
+
 def get_open_hooks(series_id: str):
     init_db(series_id)
     conn = sqlite3.connect(get_db_path(series_id))
@@ -132,3 +169,12 @@ def resolve_hook(series_id: str, hook_id: int):
     cursor.execute("UPDATE hooks SET status='resolved' WHERE id=?", (hook_id,))
     conn.commit()
     conn.close()
+
+def delete_hook(series_id: str, hook_id: int):
+    init_db(series_id)
+    conn = sqlite3.connect(get_db_path(series_id))
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM hooks WHERE id=?", (hook_id,))
+    conn.commit()
+    conn.close()
+

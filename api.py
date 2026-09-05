@@ -12,9 +12,16 @@ import os
 import glob
 from pathlib import Path
 from pydantic import BaseModel
+from langgraph.checkpoint.sqlite import SqliteSaver
+import sqlite3
 
 from studio_graph.graph import create_studio_graph
 from config import CONFIG
+
+os.makedirs("data", exist_ok=True)
+conn = sqlite3.connect("data/checkpoints.sqlite", check_same_thread=False)
+global_checkpointer = SqliteSaver(conn)
+global_checkpointer.setup()
 
 CANCEL_REQUESTED = False
 
@@ -152,7 +159,7 @@ async def generate_comic(req: GenerateRequest):
         await asyncio.sleep(0.1)
         
         try:
-            graph = create_studio_graph()
+            graph = create_studio_graph(global_checkpointer)
             config = {"configurable": {"thread_id": f"chapter_{req.series_id}_{req.chapter_id}", "series_id": req.series_id}}
             
             initial_state = {
@@ -179,6 +186,104 @@ async def generate_comic(req: GenerateRequest):
                     yield f"data: ✅ Hoàn thành Node: {k}\n\n"
                     await asyncio.sleep(0.1)
                     
+            state_snapshot = graph.get_state(config)
+            if state_snapshot.next and "renderer" in state_snapshot.next:
+                current_schema = state_snapshot.values.get("current_schema")
+                if current_schema:
+                    yield f"data: [SCHEMA_READY] {json.dumps(current_schema, ensure_ascii=False)}\n\n"
+                    
+            yield "data: [DONE]\n\n"
+        except Exception as e:
+            yield f"data: ❌ Lỗi: {str(e)}\n\n"
+            yield "data: [DONE]\n\n"
+            
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+class ResumeRequest(BaseModel):
+    series_id: str
+    chapter_id: str
+
+@app.post("/api/resume")
+async def resume_comic(req: ResumeRequest):
+    global CANCEL_REQUESTED
+    CANCEL_REQUESTED = False
+    
+    async def event_generator():
+        yield "data: [STUDIO] Đang khôi phục tiến độ...\n\n"
+        await asyncio.sleep(0.1)
+        
+        try:
+            graph = create_studio_graph(global_checkpointer)
+            config = {"configurable": {"thread_id": f"chapter_{req.series_id}_{req.chapter_id}", "series_id": req.series_id}}
+            
+            # Check if there's any state at all
+            state_snapshot = graph.get_state(config)
+            if not state_snapshot.values:
+                yield "data: ❌ Dữ liệu trống. Bạn chưa bấm 'Tạo Truyện Mới' bao giờ nên không có tiến độ nào để khôi phục!\n\n"
+                yield "data: [DONE]\n\n"
+                return
+            
+            # Stream with None input to resume from current state
+            for event in graph.stream(None, config):
+                if CANCEL_REQUESTED:
+                    yield "data: [CANCELLED] Quá trình tạo đã bị dừng.\n\n"
+                    break
+                for k, v in event.items():
+                    yield f"data: ✅ Hoàn thành Node: {k}\n\n"
+                    await asyncio.sleep(0.1)
+                    
+            state_snapshot = graph.get_state(config)
+            if state_snapshot.next and "renderer" in state_snapshot.next:
+                current_schema = state_snapshot.values.get("current_schema")
+                if current_schema:
+                    yield f"data: [SCHEMA_READY] {json.dumps(current_schema, ensure_ascii=False)}\n\n"
+                    
+            yield "data: [DONE]\n\n"
+        except Exception as e:
+            yield f"data: ❌ Lỗi: {str(e)}\n\n"
+            yield "data: [DONE]\n\n"
+            
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+class RenderPageRequest(BaseModel):
+    series_id: str
+    chapter_id: str
+    panels: list
+
+@app.post("/api/render_page")
+async def render_page(req: RenderPageRequest):
+    global CANCEL_REQUESTED
+    CANCEL_REQUESTED = False
+    
+    async def event_generator():
+        try:
+            graph = create_studio_graph(global_checkpointer)
+            config = {"configurable": {"thread_id": f"chapter_{req.series_id}_{req.chapter_id}", "series_id": req.series_id}}
+            
+            state_snapshot = graph.get_state(config)
+            current_schema = state_snapshot.values.get("current_schema", {})
+            if current_schema:
+                current_schema["panels"] = req.panels
+                graph.update_state(config, {"current_schema": current_schema})
+            
+            yield "data: [STUDIO] Đang vẽ trang ảnh...\n\n"
+            await asyncio.sleep(0.1)
+            
+            for event in graph.stream(None, config):
+                if CANCEL_REQUESTED:
+                    yield "data: [CANCELLED] Quá trình tạo đã bị dừng.\n\n"
+                    break
+                for k, v in event.items():
+                    yield f"data: ✅ Hoàn thành Node: {k}\n\n"
+                    await asyncio.sleep(0.1)
+            
+            new_snapshot = graph.get_state(config)
+            if new_snapshot.next and "renderer" in new_snapshot.next:
+                new_schema = new_snapshot.values.get("current_schema")
+                yield f"data: [SCHEMA_READY] {json.dumps(new_schema, ensure_ascii=False)}\n\n"
+                
             yield "data: [DONE]\n\n"
         except Exception as e:
             yield f"data: ❌ Lỗi: {str(e)}\n\n"
@@ -341,6 +446,72 @@ async def delete_character(char_id: str, series_id: str):
     db_delete_character(series_id, char_id)
     return {"status": "success"}
 
+# --- SETTINGS Endpoints ---
+@app.get("/api/database/settings")
+async def get_settings_route(series_id: str):
+    from database.sqlite_db import get_settings
+    settings = get_settings(series_id)
+    return {"settings": settings}
+
+class CreateSettingRequest(BaseModel):
+    series_id: str
+    id: str
+    name: str
+    description: str
+    background_seed: int
+
+@app.post("/api/database/settings/create")
+async def create_setting(req: CreateSettingRequest):
+    from database.sqlite_db import upsert_setting
+    upsert_setting(req.series_id, req.dict())
+    return {"status": "success"}
+
+@app.delete("/api/database/settings/{setting_id}")
+async def delete_setting_route(setting_id: str, series_id: str):
+    from database.sqlite_db import delete_setting as db_delete_setting
+    db_delete_setting(series_id, setting_id)
+    return {"status": "success"}
+
+# --- HOOKS Endpoints ---
+@app.get("/api/database/hooks")
+async def get_hooks_route(series_id: str):
+    from database.sqlite_db import get_open_hooks
+    hooks = get_open_hooks(series_id)
+    return {"hooks": hooks}
+
+class CreateHookRequest(BaseModel):
+    series_id: str
+    description: str
+    chapter: int
+
+@app.post("/api/database/hooks/create")
+async def create_hook_route(req: CreateHookRequest):
+    from database.sqlite_db import add_hook
+    add_hook(req.series_id, req.description, req.chapter)
+    return {"status": "success"}
+
+@app.delete("/api/database/hooks/{hook_id}")
+async def delete_hook_route(hook_id: int, series_id: str):
+    from database.sqlite_db import delete_hook as db_delete_hook
+    db_delete_hook(series_id, hook_id)
+    return {"status": "success"}
+
+# --- AI Character Agent ---
+class AgentCharacterRequest(BaseModel):
+    prompt: str
+
+@app.post("/api/database/agent/character")
+async def agent_character(req: AgentCharacterRequest):
+    from langchain_openai import ChatOpenAI
+    llm = ChatOpenAI(model="gpt-4o", temperature=0.7, model_kwargs={"response_format": {"type": "json_object"}})
+    sys_msg = "You are a character designer for a comic book. Convert the user's description into a structured JSON character profile. Return exactly: {\"id\": \"snake_case_id\", \"name\": \"Full Name\", \"age\": \"age as string\", \"personality\": \"brief description\", \"base_prompt_en\": \"Detailed physical appearance prompt in english for stable diffusion\", \"seed\": 42}"
+    res = llm.invoke([{"role": "system", "content": sys_msg}, {"role": "user", "content": req.prompt}])
+    try:
+        import json
+        char_data = json.loads(res.content)
+        return {"status": "success", "character": char_data}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 @app.post("/api/cancel")
 async def cancel_generation():

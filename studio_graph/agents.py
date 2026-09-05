@@ -47,15 +47,20 @@ def run_writer(state: StudioState) -> StudioState:
     print("[WRITER] Writing detailed script...")
     prompt = ChatPromptTemplate.from_messages([
         ("system", WRITER_SYSTEM_PROMPT),
-        ("human", "User Request/Idea (Contains requested language):\n{user_prompt}\n\nChapter Outline:\n{outline}\n\nMicro Scene State (End of last page):\n{scene_state}\n\nHuman Feedback (if any):\n{feedback}\n\nWrite the detailed script for this Chapter.")
+        ("human", "User Request/Idea (Contains requested language):\n{user_prompt}\n\nChapter Outline:\n{outline}\n\nLorebook (Characters strictly available):\n{lore}\n\nMicro Scene State (End of last page):\n{scene_state}\n\nHuman Feedback (if any):\n{feedback}\n\nWrite the detailed script for this Chapter.")
     ])
     
     scene = json.dumps(get_scene_state(), ensure_ascii=False)
+    
+    # We need the series_id from the state if available, wait, we don't have it in state?
+    # Actually, we can just use the retrieved_lore from state which was fetched by director!
+    lore_text = state.get("retrieved_lore", "")
     
     chain = prompt | llm
     res = chain.invoke({
         "user_prompt": state.get("user_prompt", ""),
         "outline": state["chapter_outline"],
+        "lore": lore_text,
         "scene_state": scene,
         "feedback": state.get("human_feedback", "None")
     })
@@ -92,9 +97,15 @@ def run_storyboarder(state: StudioState) -> StudioState:
     print(f"[STORYBOARDER] Converting script for page {page_idx+1} to JSON Schema...")
     script = state["page_scripts"][page_idx]["content"]
     
+    human_msg = "Previous Page Context:\n{prev_context}\n\nWrite the JSON schema for this script:\n{script}\n\nLore (Use strictly these seeds/prompts if characters exist):\n{lore}\n\nMake sure to return valid JSON."
+    
+    if state.get("validation_errors"):
+        errs = "\n".join(state["validation_errors"])
+        human_msg += f"\n\nCRITICAL FIXES REQUIRED FROM ART DIRECTOR:\n{errs}\nYou MUST incorporate these fixes into the new JSON."
+
     prompt = ChatPromptTemplate.from_messages([
         ("system", STORYBOARDER_SYSTEM_PROMPT),
-        ("human", "Previous Page Context:\n{prev_context}\n\nWrite the JSON schema for this script:\n{script}\n\nLore (Use strictly these seeds/prompts if characters exist):\n{lore}\n\nMake sure to return valid JSON.")
+        ("human", human_msg)
     ])
     
     previous_context = "None (This is the first page, establish the scene based on the script)."
