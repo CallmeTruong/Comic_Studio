@@ -46,8 +46,8 @@ class QualityConfig:
     base_steps: int = 80
     panel_steps: int = 60 
     bubble_steps: int = 40
-    max_render_width: int = 1024
-    max_render_height: int = 1024
+    max_render_width: int = 896
+    max_render_height: int = 896
     step_multipliers: dict = None
     min_diffusion_steps: int = 32
     max_diffusion_steps: int = 180

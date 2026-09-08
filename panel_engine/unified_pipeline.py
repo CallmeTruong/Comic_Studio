@@ -162,6 +162,8 @@ def generate_panels_unified(
     style_name: str | None = None,
     negative_prompt_extra: str | None = None,
     target_panel_ids: List[str] | None = None,
+    series_id: str = "default",
+    seed: int | None = None,
 ) -> Dict[str, Dict[str, int]]:
     output_panel_path = Path(output_panel_dir)
     output_panel_path.mkdir(parents=True, exist_ok=True)
@@ -227,7 +229,7 @@ def generate_panels_unified(
     background = comic.background
     default_bg_prompt = background.prompt_en if background else "simple background"
     bg_seed = background.seed if background else comic.metadata.get("background_seed", 2000)
-    base_seed = comic.metadata.get("base_seed", 1000)
+    base_seed = seed if seed is not None else comic.metadata.get("base_seed", 1000)
 
     panel_sizes: Dict[str, Dict[str, int]] = {}
     controlnet_modes = [info["mode"] for info in controlnet_infos]
@@ -245,6 +247,9 @@ def generate_panels_unified(
         )
         
         bg_prompt = getattr(panel, "background_prompt_en", None) or default_bg_prompt
+        
+        # Remove IP-Adapter image logic
+        ip_adapter_image = None
         
         characters_meta: List[Tuple] = []
         character_actions_dict: Dict[str, dict] = {}
@@ -315,9 +320,9 @@ def generate_panels_unified(
         if characters_meta:
             main_char_id = characters_meta[0][1]
             main_char_seed = character_seeds.get(main_char_id, base_seed)
-            panel_seed = (main_char_seed + idx * 10) % 2147483647
+            panel_seed = main_char_seed
         else:
-            panel_seed = (bg_seed + idx * 100) % 2147483647
+            panel_seed = bg_seed
 
         render_note = ""
         if render_width != panel_width or render_height != panel_height:

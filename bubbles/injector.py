@@ -943,15 +943,22 @@ def get_all_character_bboxes_on_page(
         return all_character_bboxes
     
     panel_path = Path(panels_dir)
-    panel_files = sorted(panel_path.glob("*.png"))
     panels_data = data.get("panels", [])
     
-    for i, panel_data in enumerate(panels_data[:len(panel_files)]):
-        if i >= len(panel_files) or i >= len(panel_positions):
+    for i, panel_data in enumerate(panels_data):
+        if i >= len(panel_positions):
             continue
         
+        panel_id = panel_data.get("id")
+        if not panel_id:
+            continue
+            
+        pfile = panel_path / f"{panel_id}.png"
+        if not pfile.exists():
+            continue
+            
         try:
-            panel_image = Image.open(panel_files[i]).convert("RGB")
+            panel_image = Image.open(pfile).convert("RGB")
             panel_x, panel_y, panel_w, panel_h = panel_positions[i]
             
             scale_x = panel_w / panel_image.width
@@ -993,7 +1000,6 @@ def inject_bubbles_to_page(
     draw = ImageDraw.Draw(result)
     
     panel_path = Path(panels_dir)
-    panel_files = sorted(panel_path.glob("*.png"))
     
     page_width, page_height = result.size
     
@@ -1007,22 +1013,31 @@ def inject_bubbles_to_page(
     bubble_entries: List[Dict] = []
     bubble_panels: List[Dict] = []
     
-    for i, panel_data in enumerate(panels_data[:len(panel_files)]):
+    for i, panel_data in enumerate(panels_data):
         dialogues = panel_data.get("dialogues", [])
         if not dialogues:
             continue
         
-        if i >= len(panel_files):
+        panel_id = panel_data.get("id")
+        if not panel_id:
+            continue
+            
+        pfile = panel_path / f"{panel_id}.png"
+        if not pfile.exists():
             continue
 
-        panel_image = Image.open(panel_files[i]).convert("RGB")
+        try:
+            panel_image = Image.open(pfile).convert("RGB")
+        except Exception as e:
+            print(f"[WARN] Failed to open {pfile}: {e}")
+            continue
 
         if panel_positions and i < len(panel_positions):
             panel_x, panel_y, panel_w, panel_h = panel_positions[i]
             scale_x = panel_w / panel_image.width
             scale_y = panel_h / panel_image.height
         else:
-            num_panels = len(panel_files)
+            num_panels = len(panels_data)
             panel_height = page_height // num_panels if num_panels > 0 else page_height
             panel_width = page_width
             panel_x, panel_y = 0, i * panel_height

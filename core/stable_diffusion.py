@@ -78,6 +78,14 @@ class SD:
         # self.pipe.enable_vae_slicing()
         print(f"[SD] ✓ Model loaded on {device}")
         
+        try:
+            print(f"[SD] Loading IP-Adapter (ip-adapter-plus_sd15.safetensors)...")
+            self.pipe.load_ip_adapter("h94/IP-Adapter", subfolder="models", weight_name="ip-adapter-plus_sd15.safetensors")
+            self.pipe.set_ip_adapter_scale(0.7)
+            print(f"[SD] ✓ IP-Adapter loaded")
+        except Exception as e:
+            print(f"[WARN] Failed to load IP-Adapter: {e}")
+            
         if negative_embedding_path and Path(negative_embedding_path).exists():
             self._load_negative_embedding(negative_embedding_path)
     
@@ -123,6 +131,7 @@ class SD:
         height: int = None,
         guidance_scale: float = None,
         control_images: dict | None = None,
+        ip_adapter_image: Image.Image | None = None,
     ) -> Image.Image:
         if pipe is None:
             pipe = self.pipe
@@ -166,6 +175,19 @@ class SD:
                     kwargs["controlnet_conditioning_scale"] = (
                         scales if len(ordered) > 1 else scales[0]
                     )
+                    
+        # Check if IP-Adapter is loaded (it injects image projection layers)
+        is_ip_adapter_loaded = hasattr(pipe, "unet") and hasattr(pipe.unet.config, "encoder_hid_dim_type") and pipe.unet.config.encoder_hid_dim_type == "ip_image_proj"
+        
+        # If IP-Adapter is loaded but no image is provided, diffusers will crash.
+        # We must provide a dummy image and set scale to 0.0.
+        if getattr(self, "_ip_adapter_loaded", False) or is_ip_adapter_loaded:
+            if ip_adapter_image is not None:
+                kwargs["ip_adapter_image"] = ip_adapter_image
+                pipe.set_ip_adapter_scale(0.7)
+            else:
+                kwargs["ip_adapter_image"] = Image.new("RGB", (224, 224), "black")
+                pipe.set_ip_adapter_scale(0.0)
         
         image = pipe(**kwargs).images[0]
         return image

@@ -7,17 +7,30 @@ from config import CONFIG
 
 from .layouts import LAYOUT_SETTINGS, compute_layout_placements, select_layout_name
 
-def load_panels(panels_dir: str) -> Dict[str, Image.Image]:
+from PIL import Image, ImageFilter, ImageFile
+ImageFile.LOAD_TRUNCATED_IMAGES = True
+
+def load_panels(panels_dir: str, expected_panel_ids: Optional[List[str]] = None) -> Dict[str, Image.Image]:
     panels = {}
     panel_path = Path(panels_dir)
     
-    panel_files = sorted(panel_path.glob("panel_*.png"))
-    if not panel_files:
-        panel_files = sorted(panel_path.glob("*.png"))
+    if expected_panel_ids:
+        panel_files = []
+        for pid in expected_panel_ids:
+            pfile = panel_path / f"{pid}.png"
+            if pfile.exists():
+                panel_files.append(pfile)
+    else:
+        panel_files = sorted(panel_path.glob("panel_*.png"))
+        if not panel_files:
+            panel_files = sorted(panel_path.glob("*.png"))
     
     for panel_file in panel_files:
         panel_id = panel_file.stem
-        panels[panel_id] = Image.open(panel_file).convert("RGB")
+        try:
+            panels[panel_id] = Image.open(panel_file).convert("RGB")
+        except Exception as e:
+            print(f"[WARN] Could not load panel {panel_file}: {e}")
     
     return panels
 
@@ -167,7 +180,15 @@ def build_comic_page(
     use_adaptive_layout: bool = True,
     layout_name: str = "Layout1",
 ) -> Image.Image:
-    panels_dict = load_panels(panels_dir)
+    expected_panel_ids = None
+    import os
+    if schema_path and os.path.exists(schema_path):
+        import json
+        with open(schema_path, "r", encoding="utf-8") as f:
+            schema = json.load(f)
+        expected_panel_ids = [p["id"] for p in schema.get("panels", [])]
+        
+    panels_dict = load_panels(panels_dir, expected_panel_ids=expected_panel_ids)
     
     if not panels_dict:
         raise ValueError(f"No panels found in {panels_dir}")

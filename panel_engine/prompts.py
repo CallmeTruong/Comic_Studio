@@ -454,6 +454,9 @@ def compose_unified_panel_prompt(
         if char_descriptions:
             if len(char_descriptions) == 1:
                 priority_parts.append(char_descriptions[0])
+                gender, _ = extract_gender_and_age(characters_meta[0][0].base_prompt_en)
+                solo_tag = "1girl, solo" if gender == "female" else "1boy, solo"
+                priority_parts.append(solo_tag)
                 priority_parts.append("ONLY ONE CHARACTER, no extra people")
             elif len(char_descriptions) == 2:
                 # Rút gọn: chỉ giữ thông tin quan trọng nhất
@@ -566,7 +569,7 @@ def compose_unified_panel_prompt(
         
         # Shorten negative prompts but emphasize count and gender
         if len(characters_meta) == 1:
-            negative_parts.append("multiple people, extra characters, third person")
+            negative_parts.append("multiple people, extra characters, third person, twins, clone, duplicate, two people, two girls")
         elif len(characters_meta) == 2:
             # Emphasize: exactly 2 people with correct gender
             genders = [extract_gender_and_age(c.base_prompt_en)[0] for c, _ in characters_meta]
