@@ -245,7 +245,9 @@ async def generate_short_comic(req: GenerateRequest):
                 "dialogue_plan": {},
                 "vision_qa": {},
                 "vision_retry_count": 0,
-                "max_vision_retries": 10,
+                # Keep the production default strict, but allow short Colab
+                # smoke tests to opt into a much smaller retry budget.
+                "max_vision_retries": max(0, int(os.getenv("MAX_VISION_RETRIES", "10"))),
                 "validation_errors": [], 
                 "next_step": "",
                 "layoutStyle": req.layoutStyle,
