@@ -208,7 +208,7 @@ Example `panel_prompt_en`: "running frantically through a dark forest, looking t
 
 ## INSTRUCTIONS & PUNCHY DIALOGUE
 Output ONLY valid JSON matching the required schema above. Ensure positions (x, y) and object interactions naturally match the Micro Scene State.
-CRITICAL: Use the approved dialogue plan as the source of truth. Do not invent replacement lines while converting it to schema. 
+CRITICAL: Use the approved dialogue plan as the source of truth. Do not invent replacement lines while converting it to schema. If a panel has no approved dialogue, its `dialogues` array MUST remain empty; do not add fallback speech.
 Dialogue must be short, natural and tied to the visible action. A line must express a goal, reaction, conflict, decision, or punchline; it must not merely report what the reader can already see (for example, "The object is gone", "There is a machine", or "I am holding it"). Do not force sarcasm, absurdity or unrelated jokes. Use the language of the user's idea: English input means English dialogue, Vietnamese input means Vietnamese dialogue. An explicit language request overrides this rule. Do not infer language from names, locations, or ethnicity. Limit each panel to two bubbles of at most 12 words each. Each panel must depict one primary drawable beat; a pose with object interaction is valid, but do not describe a sequence of separate events using "then" or "after that". Keep character appearance descriptions concise (about 12 words) so the renderer can retain the action.
 """
 

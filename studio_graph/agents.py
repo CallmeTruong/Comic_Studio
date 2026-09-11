@@ -455,8 +455,11 @@ def run_storyboarder(state: StudioState) -> StudioState:
         for page in schema.get("pages", []):
             for index, panel in enumerate(page.get("panels", []), start=1):
                 panel_number = (int(page.get("page_number", 1)) - 1) * 6 + index
-                if panel_number in by_panel:
-                    panel["dialogues"] = by_panel[panel_number]
+                # The dialogue plan is authoritative, including an explicit
+                # empty list for an intentional silent beat. Leaving the
+                # storyboard model's fallback dialogue in place caused Vision
+                # QA to reject otherwise valid silent panels.
+                panel["dialogues"] = by_panel.get(panel_number, [])
         # The renderer operates on each panel independently. Repeat the fixed
         # cast and the one setting in every visual brief so an SD image cannot
         # drift into an unrelated portrait or room on later panels.
