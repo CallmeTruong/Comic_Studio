@@ -4,13 +4,17 @@ Local AI comic studio that turns a short idea into a complete comic page: plan t
 
 ## Demo
 
-The page below is a small, deliberately simple SD 1.5 example. It was rendered at 80 steps and checked panel-by-panel for a readable sequence, recurring subject, and usable speech placement.
+The pages below are small SD 1.5 examples. They were rendered at 80 steps and checked panel-by-panel for a readable sequence, recurring subject, and usable speech placement.
 
 <p align="center">
   <img src="images/curated/baker_story_steps80.jpg" alt="Four-panel baker comic page" width="720">
 </p>
 
-The demo keeps the story simple because SD 1.5 is much more reliable with one recurring subject, a small number of props, and one clear action per panel. It is a visual example of the workflow, not a claim that every generated page will be perfect.
+<p align="center">
+  <img src="images/curated/cat_box_punchline.jpg" alt="Four-panel cat and box comic page" width="720">
+</p>
+
+The demos keep the stories simple because SD 1.5 is much more reliable with one recurring subject, a small number of props, and one clear action per panel. They are visual examples of the workflow, not a claim that every generated page will be perfect.
 
 ## What it does
 
