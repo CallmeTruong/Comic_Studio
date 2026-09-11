@@ -58,6 +58,28 @@ STYLE_PRESETS: Dict[str, StylePreset] = {
             "empty classroom",
         ],
     ),
+    # Simple flat-vector look, closer to short-format webcomics
+    # (Brain Holesky / JoeGP / Kesanitw style references). Fewer rendered
+    # details per panel = fewer chances for the character's face/outfit to
+    # drift between panels.
+    "flat_comic": StylePreset(
+        name="flat_comic",
+        prompt_tags=[
+            "flat vector illustration",
+            "clean bold outlines",
+            "simple flat colors",
+            "minimal shading",
+            "simple consistent character design",
+        ],
+        negative_tags=[
+            "photorealistic",
+            "cinematic lighting",
+            "3d render",
+            "realistic skin texture",
+            "painterly",
+            "highly detailed illustration",
+        ],
+    ),
 }
 
 

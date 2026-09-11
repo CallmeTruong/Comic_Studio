@@ -158,7 +158,7 @@ def build_comic_page_with_grid(
             panel_img,
             panel_width,
             panel_height,
-            fill_mode="smart_pad",
+            fill_mode="crop",
             important_region=important_region,
         )
 
@@ -175,19 +175,12 @@ def build_comic_page_with_grid(
 def build_comic_page(
     panels_dir: str = "Panels_image",
     output_path: str = "comic_page.png",
+    expected_panel_ids: Optional[List[str]] = None,
     schema_path: Optional[str] = None,
     inject_bubbles: bool = True,
     use_adaptive_layout: bool = True,
     layout_name: str = "Layout1",
 ) -> Image.Image:
-    expected_panel_ids = None
-    import os
-    if schema_path and os.path.exists(schema_path):
-        import json
-        with open(schema_path, "r", encoding="utf-8") as f:
-            schema = json.load(f)
-        expected_panel_ids = [p["id"] for p in schema.get("panels", [])]
-        
     panels_dict = load_panels(panels_dir, expected_panel_ids=expected_panel_ids)
     
     if not panels_dict:
@@ -255,7 +248,13 @@ def build_comic_page(
     if inject_bubbles and schema_path:
         try:
             from bubbles.injector import inject_bubbles_to_page
-            page = inject_bubbles_to_page(page, schema_path, panels_dir, panel_positions)
+            page = inject_bubbles_to_page(
+                page, 
+                schema_path, 
+                panels_dir, 
+                panel_positions, 
+                expected_panel_ids=expected_panel_ids
+            )
         except Exception as e:
             print(f"[WARN] Bubble injection failed: {e}")
     

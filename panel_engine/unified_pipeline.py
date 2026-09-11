@@ -1,5 +1,7 @@
 from __future__ import annotations
 import json
+import hashlib
+import torch
 from pathlib import Path
 from typing import Dict, List, Tuple
 from core.stable_diffusion import SD
@@ -11,6 +13,7 @@ from page.builder import preserve_aspect_resize
 from PIL import Image, ImageDraw
 from style.presets import get_style_preset
 from config import CONFIG
+from core.model_registry import ensure_model, validate_model_id
 
 
 def _position_ratio(value: str | None, fallback: float) -> float:
@@ -37,7 +40,6 @@ def build_control_guides(
     characters_meta: List[Tuple],
     character_positions: Dict[str, dict],
     requested_modes: List[str],
-    include_desk: bool = False,
 ) -> Dict[str, Image.Image]:
     if width <= 0 or height <= 0:
         width, height = CONFIG.panel.fallback_width, CONFIG.panel.fallback_height
@@ -105,11 +107,6 @@ def build_control_guides(
             width=5,
         )
 
-    if include_desk:
-        desk_y = int(height * 0.65)
-        canny_draw.line([(0, desk_y), (width, desk_y)], fill=200, width=4)
-        depth_draw.rectangle([0, desk_y, width, desk_y + 20], fill=140)
-
     guides: Dict[str, Image.Image] = {}
     if "canny" in requested_modes:
         guides["canny"] = canny.convert("RGB")
@@ -125,6 +122,19 @@ def _split_extra_tags(text: str | None) -> List[str]:
         return []
     normalized = text.replace("\n", ",")
     return [frag.strip() for frag in normalized.split(",") if frag.strip()]
+
+
+def _extract_structured_fields(panel) -> dict[str, str]:
+    """Return structured storyboard constraints without parsing panel prose."""
+    fields: dict[str, str] = {}
+    for name in ("primary_subject", "secondary_subject", "visual_hierarchy", "required_action"):
+        value = str(getattr(panel, name, "") or "").strip()
+        if value:
+            fields[name] = value
+    subjects = list(getattr(panel, "required_subjects", None) or [])
+    if subjects:
+        fields["required_subjects"] = ", ".join(str(value).strip() for value in subjects if str(value).strip())
+    return fields
 
 
 def _compute_render_size(
@@ -164,7 +174,19 @@ def generate_panels_unified(
     target_panel_ids: List[str] | None = None,
     series_id: str = "default",
     seed: int | None = None,
+    model_id: str = "sd15",
 ) -> Dict[str, Dict[str, int]]:
+    # A CPU fallback is useful for schema/pipeline smoke tests, but rendering
+    # four large SD 1.5 panels concurrently with the normal GPU dimensions can
+    # exhaust system memory and terminate the API process. Keep this fallback
+    # bounded; CUDA runs retain the requested quality dimensions unchanged.
+    if device == "cuda" and not torch.cuda.is_available():
+        max_render_width = min(max_render_width, 512)
+        max_render_height = min(max_render_height, 512)
+        print(
+            "[UNIFIED] CUDA unavailable; using bounded CPU fallback "
+            f"({max_render_width}x{max_render_height})."
+        )
     output_panel_path = Path(output_panel_dir)
     output_panel_path.mkdir(parents=True, exist_ok=True)
 
@@ -214,17 +236,23 @@ def generate_panels_unified(
                 }
             )
 
-    print(f"[UNIFIED] Initializing SD model: {base_model_path}")
+    model_id = validate_model_id(model_id)
+    model_profile, resolved_model_path = ensure_model(model_id, base_model_path)
+    selected_base = model_profile["family"]
+    print(f"[UNIFIED] Initializing {model_profile['label']}: {resolved_model_path}")
     sd_model = SD(
-        base_model_path,
+        resolved_model_path,
         device=device,
-        base=base,
+        base=selected_base,
         negative_embedding_path=negative_embedding_path,
         controlnet_infos=controlnet_infos,
     )
     if lora_path:
-        sd_model.load_lora(lora_path, lora_scale)
-        print(f"[UNIFIED] Loaded LoRA: {lora_path} (scale={lora_scale})")
+        lora_loaded = sd_model.load_lora(lora_path, lora_scale)
+        print(
+            f"[UNIFIED] LoRA status: {'applied' if lora_loaded else 'fallback to base model'} "
+            f"({lora_path}, scale={lora_scale})"
+        )
 
     background = comic.background
     default_bg_prompt = background.prompt_en if background else "simple background"
@@ -234,7 +262,19 @@ def generate_panels_unified(
     panel_sizes: Dict[str, Dict[str, int]] = {}
     controlnet_modes = [info["mode"] for info in controlnet_infos]
     style_preset = get_style_preset(style_name)
-    
+
+    # --- Per-character seeds (computed once, for ALL characters in the
+    # schema, not just the ones active in the panel being rendered right
+    # now). Panels reuse the same seed for the same character_id so the
+    # starting noise is at least anchored the same way every time. ---
+    character_seeds: Dict[str, int] = {}
+    for char_id, char_meta in comic.characters.items():
+        char_seed = getattr(char_meta, "seed", None)
+        if char_seed is None or char_seed == 0:
+            char_hash = sum(ord(c) for c in char_id) % 10000
+            char_seed = base_seed + char_hash
+        character_seeds[char_id] = char_seed
+
     for idx, panel in enumerate(comic.panels, start=1):
         if target_panel_ids and panel.id not in target_panel_ids:
             continue
@@ -247,27 +287,17 @@ def generate_panels_unified(
         )
         
         bg_prompt = getattr(panel, "background_prompt_en", None) or default_bg_prompt
-        
-        # Remove IP-Adapter image logic
-        ip_adapter_image = None
-        
+
         characters_meta: List[Tuple] = []
         character_actions_dict: Dict[str, dict] = {}
         character_positions_dict: Dict[str, dict] = {}
-        character_seeds: Dict[str, int] = {}
         
         if panel.active_char_ids:
             for char_id in panel.active_char_ids:
                 char_meta = comic.characters.get(char_id)
                 if char_meta:
                     characters_meta.append((char_meta, char_id))
-                    
-                    char_seed = getattr(char_meta, "seed", None)
-                    if char_seed is None or char_seed == 0:
-                        char_hash = sum(ord(c) for c in char_id) % 10000
-                        char_seed = base_seed + char_hash
-                    character_seeds[char_id] = char_seed
-                    
+
                     char_action_obj = panel.character_actions.get(char_id) if panel.character_actions else None
                     if char_action_obj:
                         if hasattr(char_action_obj, "action_en"):
@@ -295,8 +325,9 @@ def generate_panels_unified(
             print(f"[WARN] Panel {panel.id} has no characters!")
         
         main_char_meta = characters_meta[0][0] if characters_meta else None
-        camera_angle = main_char_meta.camera_angle if main_char_meta else None
-        camera_distance = main_char_meta.camera_distance if main_char_meta else None
+        # Shot composition belongs to the panel, not the character portrait.
+        camera_angle = None
+        camera_distance = None
 
         cleaned_panel_prompt = clean_instruction_text(panel.panel_prompt_en)
         style_negative_tags = list(style_preset.negative_tags)
@@ -312,21 +343,33 @@ def generate_panels_unified(
             camera_angle=camera_angle,
             camera_distance=camera_distance,
             description_en=panel.description_en,
-            max_tokens=77,  # CLIP tokenizer limit
+            required_props=getattr(panel, "required_props", None),
+            required_text=getattr(panel, "required_text", None),
+            extra_structured_fields=_extract_structured_fields(panel),
+            # Compel performs long-prompt chunking. Do not pre-truncate the
+            # structured action/prop contract before it reaches Compel.
+            max_tokens=None,
             style_positive=style_preset.prompt_tags,
             style_negative=style_negative_tags,
         )
 
         if characters_meta:
-            main_char_id = characters_meta[0][1]
-            main_char_seed = character_seeds.get(main_char_id, base_seed)
-            panel_seed = main_char_seed
+            # Derive the seed from the complete cast, not only the first
+            # character, so recurring groups remain reproducible.
+            cast_key = ":".join(sorted(char_id for _, char_id in characters_meta))
+            cast_hash = int(hashlib.sha256(cast_key.encode("utf-8")).hexdigest()[:8], 16)
+            # Reuse one latent anchor for the same recurring cast across the
+            # page. Varying the seed per panel made SD1.5 invent a new face,
+            # outfit, or extra person even when the prompt was identical about
+            # identity. The action/shot prompt still changes each panel; the
+            # shared anchor improves facial and clothing continuity.
+            panel_seed = (base_seed + cast_hash) % (2**32)
         else:
-            panel_seed = bg_seed
+            panel_seed = (base_seed + bg_seed + idx * 1009) % (2**32)
 
         render_note = ""
         if render_width != panel_width or render_height != panel_height:
-            render_note = f" → render at {render_width}x{render_height}"
+            render_note = f" -> render at {render_width}x{render_height}"
         print(f"[UNIFIED] Generating {panel.id} ({panel_width}x{panel_height}{render_note}, seed={panel_seed})...")
         print(f"  Characters: {[c[1] for c in characters_meta] if characters_meta else 'none'}")
         if characters_meta:
@@ -337,36 +380,12 @@ def generate_panels_unified(
 
         control_images = None
         if controlnet_modes:
-            prompt_text = (panel.panel_prompt_en or "").lower()
-            action_tokens = ""
-            if panel.character_actions:
-                fragments = []
-                for action in panel.character_actions.values():
-                    if hasattr(action, "__dict__"):
-                        fragments.extend(
-                            getattr(action, attr, "")
-                            for attr in ["action_en", "pose_en"]
-                        )
-                        if getattr(action, "objects", None):
-                            fragments.extend(action.objects)
-                    elif isinstance(action, dict):
-                        fragments.extend(
-                            str(val) for val in action.values() if isinstance(val, str)
-                        )
-                    else:
-                        fragments.append(str(action))
-                action_tokens = " ".join(fragments).lower()
-            include_desk = any(
-                keyword in prompt_text or keyword in action_tokens
-                for keyword in ["desk", "table", "notebook"]
-            )
             control_images = build_control_guides(
                 render_width,
                 render_height,
                 characters_meta,
                 character_positions_dict,
                 requested_modes=controlnet_modes,
-                include_desk=include_desk,
             )
 
         panel_image = sd_model.gen_image(
@@ -381,23 +400,23 @@ def generate_panels_unified(
         )
 
         if render_width != panel_width or render_height != panel_height:
+            from page.builder import preserve_aspect_resize
             panel_image = preserve_aspect_resize(
                 panel_image,
                 panel_width,
                 panel_height,
-                fill_mode="smart_pad",
+                fill_mode="crop",
             )
 
         panel_path = output_panel_path / f"{panel.id}.png"
         panel_image.save(panel_path, quality=95)
-        print(f"[UNIFIED] ✓ Saved: {panel_path}")
+        print(f"[UNIFIED] OK Saved: {panel_path}")
 
         panel_sizes[panel.id] = {"width": panel_width, "height": panel_height}
 
     # FREE VRAM
     print("[UNIFIED] Freeing Stable Diffusion VRAM...")
     del sd_model
-    import torch
     import gc
     gc.collect()
     if torch.cuda.is_available():

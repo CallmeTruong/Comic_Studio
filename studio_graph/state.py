@@ -6,6 +6,7 @@ class StudioState(TypedDict):
     validation_errors: List[str]
     next_step: str
     output_page: str
+    output_pages: List[str]
     layoutStyle: str
     mangaLayout: str
     steps: int
@@ -13,3 +14,13 @@ class StudioState(TypedDict):
     lora: str
     negativePrompt: str
     seed: str
+    pageCount: int
+    model: str
+    retry_count: int
+    max_retries: int
+    generation_error: str
+    story_plan: dict
+    dialogue_plan: dict
+    vision_qa: dict
+    vision_retry_count: int
+    max_vision_retries: int

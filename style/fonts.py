@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import tempfile
 from pathlib import Path
 from typing import Dict
 from functools import lru_cache
@@ -46,16 +45,18 @@ def _get_font_embeddings() -> tuple[list[str], np.ndarray]:
 def get_font_name_for_emotion(emotion: str | None) -> str:
     if not emotion:
         return "actionman"
-    
-    model = _get_model()
-    fonts, font_embs = _get_font_embeddings()
-    
-    emotion_emb = model.encode(emotion)
-    sims = np.dot(font_embs, emotion_emb) / (
-        np.linalg.norm(font_embs, axis=1) * np.linalg.norm(emotion_emb)
-    )
-    
-    return fonts[np.argmax(sims)]
+
+    # Font choice must be deterministic and lightweight. Loading a sentence
+    # transformer for every page made bubble rendering slow and could exhaust
+    # the temporary disk while converting WOFF2 files.
+    emotion_lower = emotion.lower()
+    if any(word in emotion_lower for word in ("shout", "scream", "yell")):
+        return "komika"
+    if any(word in emotion_lower for word in ("surpris", "shock", "panic")):
+        return "digitalstrip"
+    if any(word in emotion_lower for word in ("sad", "sorry", "apolog")):
+        return "manoskope"
+    return "actionman"
 
 
 def _load_woff2(path: Path, size: int) -> ImageFont.FreeTypeFont:
@@ -64,21 +65,24 @@ def _load_woff2(path: Path, size: int) -> ImageFont.FreeTypeFont:
     except Exception as exc:
         raise RuntimeError(f"fontTools missing for {path}: {exc}") from exc
 
-    with tempfile.NamedTemporaryFile(delete=False) as tmp_in:
-        tmp_in.write(path.read_bytes())
-        in_path = tmp_in.name
-
-    tmp_out = tempfile.NamedTemporaryFile(delete=False)
-    out_path = tmp_out.name
-    tmp_out.close()
+    # Keep transient font files beside the project so a full system temp
+    # drive cannot break comic rendering.
+    cache_dir = FONT_ROOT / ".cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    stem = f"{path.stem}_{size}"
+    in_path = str(cache_dir / f"{stem}.woff2")
+    out_path = str(cache_dir / f"{stem}.ttf")
+    Path(in_path).write_bytes(path.read_bytes())
 
     try:
         decompress(in_path, out_path)
         font = ImageFont.truetype(out_path, size=size)
     finally:
         for p in (in_path, out_path):
-            try: os.remove(p)
-            except OSError: pass
+            try:
+                os.remove(p)
+            except OSError:
+                pass
     return font
 
 

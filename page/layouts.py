@@ -5,86 +5,71 @@ from typing import Dict, List, Optional, Sequence
 
 
 LAYOUT_SETTINGS: Dict[str, List[Dict]] = {
-    # Layouts cho 2 panels
+    # Các Layouts cơ bản cho 1-3 panels (Dự phòng)
+    "Layout1Panel": [
+        {"width": 1024, "height": 1024, "col_span": 1, "row_span": 1},
+    ],
     "Layout2Panels": [
         {"width": 1024, "height": 768, "col_span": 1, "row_span": 1},
         {"width": 1024, "height": 768, "col_span": 1, "row_span": 1},
     ],
-    "Layout2PanelsWide": [
-        {"width": 1024, "height": 768, "col_span": 2, "row_span": 1},
-        {"width": 1024, "height": 768, "col_span": 2, "row_span": 1},
-    ],
-    # Layouts cho 3 panels
     "Layout3Panels": [
         {"width": 768, "height": 1024, "col_span": 1, "row_span": 1},
         {"width": 768, "height": 1024, "col_span": 1, "row_span": 1},
         {"width": 768, "height": 1024, "col_span": 1, "row_span": 1},
     ],
-    "Layout3PanelsMixed": [
-        {"width": 1024, "height": 768, "col_span": 2, "row_span": 1},
-        {"width": 768, "height": 1024, "col_span": 1, "row_span": 1},
-        {"width": 768, "height": 1024, "col_span": 1, "row_span": 1},
+    # 5 MẪU LAYOUT BẤT ĐỐI XỨNG (ASYMMETRICAL) CHO 4-8 PANELS
+    "Layout4Panels_Dynamic": [
+        {"width": 1024, "height": 512, "col_span": 4, "row_span": 1},
+        {"width": 512, "height": 512, "col_span": 2, "row_span": 1},
+        {"width": 512, "height": 512, "col_span": 2, "row_span": 1},
+        {"width": 1024, "height": 512, "col_span": 4, "row_span": 1},
     ],
-    # Layouts cho 4 panels
-    "Layout1": [
-        {"width": 1024, "height": 768, "col_span": 2, "row_span": 1},
-        {"width": 768, "height": 1024, "col_span": 1, "row_span": 2},
-        {"width": 768, "height": 1024, "col_span": 1, "row_span": 2},
-        {"width": 1024, "height": 768, "col_span": 2, "row_span": 1},
+    "Layout5Panels_Action": [
+        {"width": 512, "height": 1024, "col_span": 2, "row_span": 2},
+        {"width": 512, "height": 512, "col_span": 2, "row_span": 1},
+        {"width": 512, "height": 512, "col_span": 2, "row_span": 1},
+        {"width": 512, "height": 512, "col_span": 2, "row_span": 2},
+        {"width": 512, "height": 512, "col_span": 2, "row_span": 2},
     ],
-    "Layout2": [
-        {"width": 1024, "height": 768, "col_span": 2, "row_span": 1},
-        {"width": 768, "height": 1024, "col_span": 1, "row_span": 2},
-        {"width": 768, "height": 1024, "col_span": 1, "row_span": 2},
-        {"width": 1024, "height": 768, "col_span": 2, "row_span": 1},
+    "Layout6Panels_Reveal": [
+        {"width": 512, "height": 512, "col_span": 1, "row_span": 1},
+        {"width": 1024, "height": 512, "col_span": 2, "row_span": 1},
+        {"width": 1024, "height": 512, "col_span": 2, "row_span": 1},
+        {"width": 512, "height": 512, "col_span": 1, "row_span": 1},
+        {"width": 512, "height": 1024, "col_span": 1, "row_span": 2},
+        {"width": 1024, "height": 1024, "col_span": 2, "row_span": 2},
     ],
-    "Layout3": [
-        {"width": 1024, "height": 768, "col_span": 2, "row_span": 1},  # top
-        {"width": 768, "height": 1024, "col_span": 1, "row_span": 1},   # middle left
-        {"width": 768, "height": 1024, "col_span": 1, "row_span": 1},   # middle right
-        {"width": 1024, "height": 768, "col_span": 2, "row_span": 1},   # bottom
+    "Layout7Panels_Tension": [
+        {"width": 1024, "height": 256, "col_span": 4, "row_span": 1},
+        {"width": 256, "height": 512, "col_span": 1, "row_span": 2},
+        {"width": 256, "height": 512, "col_span": 1, "row_span": 2},
+        {"width": 256, "height": 512, "col_span": 1, "row_span": 2},
+        {"width": 256, "height": 512, "col_span": 1, "row_span": 2},
+        {"width": 1024, "height": 256, "col_span": 4, "row_span": 1},
+        {"width": 1024, "height": 256, "col_span": 4, "row_span": 1},
     ],
-    # Layouts cho 5 panels
-    "Layout5Panels": [
-        {"width": 768, "height": 1024, "col_span": 1, "row_span": 1},
-        {"width": 768, "height": 1024, "col_span": 1, "row_span": 1},
-        {"width": 768, "height": 1024, "col_span": 1, "row_span": 1},
-        {"width": 768, "height": 1024, "col_span": 1, "row_span": 1},
-        {"width": 1024, "height": 768, "col_span": 2, "row_span": 1},
-    ],
-    # Layouts cho 6 panels
-    "Layout6Panels": [
-        {"width": 768, "height": 1024, "col_span": 1, "row_span": 1},
-        {"width": 768, "height": 1024, "col_span": 1, "row_span": 1},
-        {"width": 768, "height": 1024, "col_span": 1, "row_span": 1},
-        {"width": 768, "height": 1024, "col_span": 1, "row_span": 1},
-        {"width": 768, "height": 1024, "col_span": 1, "row_span": 1},
-        {"width": 768, "height": 1024, "col_span": 1, "row_span": 1},
-    ],
-    "Layout6Panels_1": [
-        {"width": 768, "height": 1024, "col_span": 1, "row_span": 1},   # top left
-        {"width": 1024, "height": 768, "col_span": 2, "row_span": 1},   # top right
-        {"width": 768, "height": 1024, "col_span": 1, "row_span": 2},   # middle left
-        {"width": 1024, "height": 1024, "col_span": 2, "row_span": 2},  # middle right large
-        {"width": 768, "height": 1024, "col_span": 1, "row_span": 1},   # bottom left
-        {"width": 1024, "height": 768, "col_span": 2, "row_span": 1},   # bottom right
+    "Layout8Panels_RapidFire": [
+        {"width": 1024, "height": 256, "col_span": 4, "row_span": 1},
+        {"width": 512, "height": 256, "col_span": 2, "row_span": 1},
+        {"width": 512, "height": 256, "col_span": 2, "row_span": 1},
+        {"width": 256, "height": 256, "col_span": 1, "row_span": 1},
+        {"width": 256, "height": 256, "col_span": 1, "row_span": 1},
+        {"width": 256, "height": 256, "col_span": 1, "row_span": 1},
+        {"width": 256, "height": 256, "col_span": 1, "row_span": 1},
+        {"width": 1024, "height": 512, "col_span": 4, "row_span": 2},
     ],
 }
 
 GRID_CONFIGS: Dict[str, Dict] = {
+    "Layout1Panel": {"cols": 1, "rows": 1},
     "Layout2Panels": {"cols": 2, "rows": 1},
-    "Layout2PanelsWide": {"cols": 2, "rows": 2},
     "Layout3Panels": {"cols": 1, "rows": 3},
-    "Layout3PanelsMixed": {"cols": 2, "rows": 2},
-    "Layout0": {"cols": 2, "rows": 2},
-    "Layout1": {"cols": 2, "rows": 4},
-    "Layout2": {"cols": 3, "rows": 4},
-    "Layout3": {"cols": 2, "rows": 3},
-    "Layout4": {"cols": 3, "rows": 3},
-    "Layout5Panels": {"cols": 3, "rows": 2},
-    "Layout5Panels_1": {"cols": 3, "rows": 3},
-    "Layout6Panels": {"cols": 3, "rows": 2},
-    "Layout6Panels_1": {"cols": 3, "rows": 4},
+    "Layout4Panels_Dynamic": {"cols": 4, "rows": 3},
+    "Layout5Panels_Action": {"cols": 4, "rows": 4},
+    "Layout6Panels_Reveal": {"cols": 3, "rows": 4},
+    "Layout7Panels_Tension": {"cols": 4, "rows": 5},
+    "Layout8Panels_RapidFire": {"cols": 4, "rows": 5},
 }
 
 
@@ -152,10 +137,10 @@ def compute_layout_placements(
     gutter: int = 20,
 ) -> List[Dict]:
     if layout_name not in LAYOUT_SETTINGS:
-        layout_name = "Layout1"
+        layout_name = "Layout4Panels_Dynamic"
 
     layout_settings = LAYOUT_SETTINGS[layout_name]
-    grid_config = GRID_CONFIGS.get(layout_name, GRID_CONFIGS["Layout1"])
+    grid_config = GRID_CONFIGS.get(layout_name, GRID_CONFIGS["Layout4Panels_Dynamic"])
 
     num_cols = grid_config["cols"]
     num_rows = grid_config["rows"]

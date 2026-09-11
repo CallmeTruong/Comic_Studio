@@ -59,22 +59,19 @@ def analyze_layout_clues_smart(panel_prompt: str, layout_hint: str | None = None
     }
 
 def infer_emotion_from_dialogues_smart(dialogues) -> str:
+    """Use the structured emotion field; never classify arbitrary dialogue text.
+
+    The previous keyword table was a brittle, language-specific guesser and
+    could inject an emotion that the writer never authored.
+    """
     if not dialogues:
         return ""
-    
-    emotion_keywords = {
-        "happy": ["vui", "hạnh phúc", "yay", "great", "wonderful"],
-        "sad": ["buồn", "sad", "cry", "tears"],
-        "angry": ["giận", "angry", "mad", "furious"],
-        "surprised": ["ngạc nhiên", "surprised", "wow", "what"],
-        "scared": ["sợ", "scared", "afraid", "fear"],
-    }
-    
-    text = " ".join([d.text if hasattr(d, 'text') else str(d) for d in dialogues]).lower()
-    
-    for emotion, keywords in emotion_keywords.items():
-        if any(kw in text for kw in keywords):
-            return emotion
-    
+    for dialogue in dialogues:
+        value = getattr(dialogue, "emotion", None)
+        if value is None and isinstance(dialogue, dict):
+            value = dialogue.get("emotion")
+        value = str(value or "").strip()
+        if value:
+            return value
     return ""
 

@@ -25,7 +25,10 @@ def choose_bubble_style(emotion: Optional[str]) -> Dict:
     emotion_lower = emotion.lower()
     if any(key in emotion_lower for key in ["shock", "surpris", "panic"]):
         return BUBBLE_STYLES["surprise"]
-    if any(key in emotion_lower for key in ["angry", "shout", "furious"]):
+    # Anger alone does not mean a visual burst bubble. Burst shapes are very
+    # easy to read as star-shaped artifacts; reserve them for explicit
+    # shouting/screaming cues.
+    if any(key in emotion_lower for key in ["shout", "scream", "yell"]):
         return BUBBLE_STYLES["angry"]
     if any(key in emotion_lower for key in ["sad", "soft", "apolog"]):
         return BUBBLE_STYLES["whisper"]
@@ -386,6 +389,74 @@ def find_bubble_position(
     fallback_y = min(fallback_y, page_height - bubble_height - border_padding)
     
     return (fallback_x, fallback_y)
+
+
+def _rects_overlap(
+    first: Tuple[int, int, int, int],
+    second: Tuple[int, int, int, int],
+    margin: int = 12,
+) -> bool:
+    """Return whether two rectangles overlap, including a small visual gap."""
+    x, y, w, h = first
+    ox, oy, ow, oh = second
+    return not (
+        x + w + margin <= ox
+        or ox + ow + margin <= x
+        or y + h + margin <= oy
+        or oy + oh + margin <= y
+    )
+
+
+def _place_bubble_without_overlap(
+    preferred: Tuple[int, int],
+    width: int,
+    height: int,
+    panel_bounds: Tuple[int, int, int, int],
+    existing: List[Tuple[int, int, int, int]],
+    character_bbox: Optional[Tuple[int, int, int, int]],
+) -> Tuple[int, int]:
+    """Resolve a bubble position locally inside one panel.
+
+    The previous fallback only avoided bubbles with nearly identical origins.
+    Two large bubbles could therefore still intersect.  A deterministic grid
+    search guarantees a real non-overlap check and never compares bubbles from
+    unrelated panels.
+    """
+    panel_x, panel_y, panel_w, panel_h = panel_bounds
+    padding = max(20, min(48, int(min(panel_w, panel_h) * 0.02)))
+    max_x = panel_x + max(padding, panel_w - width - padding)
+    max_y = panel_y + max(padding, panel_h - height - padding)
+
+    def valid(x: int, y: int) -> bool:
+        rect = (x, y, width, height)
+        if any(_rects_overlap(rect, item) for item in existing):
+            return False
+        if character_bbox and _rects_overlap(rect, character_bbox, margin=4):
+            return False
+        return True
+
+    px, py = preferred
+    px = max(panel_x + padding, min(px, max_x))
+    py = max(panel_y + padding, min(py, max_y))
+    if valid(px, py):
+        return px, py
+
+    # Prefer the top of the panel, then scan left-to-right.  A 16px grid is
+    # sufficiently fine at the page's 2480x3508 working resolution.
+    step = 16
+    for y in range(panel_y + padding, max_y + 1, step):
+        for x in range(panel_x + padding, max_x + 1, step):
+            if valid(x, y):
+                return x, y
+
+    # If the panel is genuinely full, place below the last local bubble while
+    # clamping to the panel. This may touch the character but never overlaps a
+    # previous bubble's rectangle.
+    if existing:
+        last = max(existing, key=lambda item: item[1] + item[3])
+        fallback_y = min(max_y, last[1] + last[3] + padding)
+        return max(panel_x + padding, min(px, max_x)), fallback_y
+    return px, py
 
 
 def sample_bubble_position(
@@ -750,8 +821,9 @@ def draw_bubble_tail(
         draw.ellipse([tx - 3, ty - 3, tx + 3, ty + 3], fill=outline_color)
         return
 
-    base_half = max(8, min(w, h) // 8)
-    tail_length = min(80, math.hypot(tx - anchor_x, ty - anchor_y))
+    # A speech tail should be a short, narrow triangle, not a large spike.
+    base_half = max(12, min(24, min(w, h) // 14))
+    tail_length = min(58, math.hypot(tx - anchor_x, ty - anchor_y))
     tx = anchor_x + ux * tail_length
     ty = anchor_y + uy * tail_length
 
@@ -928,6 +1000,17 @@ def inject_bubbles_to_panel(
 
     return result
 
+
+def _extract_all_panels_from_schema(data: dict) -> list:
+    """Extract panels from schema, supporting both nested pages[] and flat panels[] formats."""
+    panels_data = []
+    if "pages" in data:
+        for page in data["pages"]:
+            panels_data.extend(page.get("panels", []))
+    else:
+        panels_data = data.get("panels", [])
+    return panels_data
+
 def get_all_character_bboxes_on_page(
     page: Image.Image,
     schema_path: str,
@@ -943,7 +1026,7 @@ def get_all_character_bboxes_on_page(
         return all_character_bboxes
     
     panel_path = Path(panels_dir)
-    panels_data = data.get("panels", [])
+    panels_data = _extract_all_panels_from_schema(data)
     
     for i, panel_data in enumerate(panels_data):
         if i >= len(panel_positions):
@@ -984,6 +1067,7 @@ def inject_bubbles_to_page(
     schema_path: str,
     panels_dir: str,
     panel_positions: List[Tuple[int, int, int, int]] = None,
+    expected_panel_ids: List[str] = None,
 ) -> Image.Image:
     try:
         with open(schema_path, "r", encoding="utf-8") as f:
@@ -992,8 +1076,9 @@ def inject_bubbles_to_page(
         print(f"[WARN] Cannot load schema: {e}")
         return page
     
-    panels_data = data.get("panels", [])
+    panels_data = _extract_all_panels_from_schema(data)
     if not panels_data:
+        print(f"[WARN] No panels found in schema (checked both 'pages' and 'panels' keys)")
         return page
     
     result = page.copy()
@@ -1013,7 +1098,20 @@ def inject_bubbles_to_page(
     bubble_entries: List[Dict] = []
     bubble_panels: List[Dict] = []
     
-    for i, panel_data in enumerate(panels_data):
+    for panel_data in panels_data:
+        panel_id = panel_data.get("id")
+        if not panel_id:
+            continue
+            
+        if expected_panel_ids and panel_id not in expected_panel_ids:
+            continue
+            
+        # Determine the index in the current page
+        if expected_panel_ids:
+            i = expected_panel_ids.index(panel_id)
+        else:
+            i = panels_data.index(panel_data)
+
         dialogues = panel_data.get("dialogues", [])
         if not dialogues:
             continue
@@ -1121,11 +1219,71 @@ def inject_bubbles_to_page(
                     }
                 )
 
+    # Composite authored required_text as simple readable captions after the
+    # panel images are drawn.  This is derived only from the schema, so it
+    # works for labels, signs, screens, or any other authored text without
+    # hard-coding a story-specific object.
+    panel_bubbles_drawn: Dict[int, List[Tuple[int, int, int, int]]] = {}
+    for panel_data in panels_data:
+        panel_id = panel_data.get("id")
+        if not panel_id or (expected_panel_ids and panel_id not in expected_panel_ids):
+            continue
+        i = expected_panel_ids.index(panel_id) if expected_panel_ids and panel_id in expected_panel_ids else panels_data.index(panel_data)
+        if i >= len(panel_positions):
+            continue
+        panel_x, panel_y, panel_w, panel_h = panel_positions[i]
+        local_existing = panel_bubbles_drawn.setdefault(i, [])
+        for text_item in panel_data.get("required_text", []) or []:
+            text = str(text_item).strip()
+            if not text:
+                continue
+            font_size = max(26, int(panel_h * 0.055))
+            font = load_font("actionman", font_size)
+            max_width = int(panel_w * 0.72)
+            text_lines = wrap_text_to_lines(text, font, max_width)
+            line_height = font.getbbox("Ay")[3] - font.getbbox("Ay")[1]
+            text_height = line_height * len(text_lines)
+            text_width = max(
+                (font.getbbox(line)[2] - font.getbbox(line)[0]) for line in text_lines
+            )
+            box_w = min(max(text_width + 48, 220), int(panel_w * 0.80))
+            box_h = min(max(text_height + 38, 90), int(panel_h * 0.32))
+            # Captions have no character tail.  Keep placement local and
+            # clamp it explicitly; the generic speech-bubble placer assumes a
+            # non-empty character bbox and can receive an invalid rectangle
+            # for a caption-only silent panel.
+            x = max(panel_x + 12, min(panel_x + (panel_w - box_w) // 2, panel_x + panel_w - box_w - 12))
+            y = panel_y + max(12, int(panel_h * 0.08))
+            candidate = (int(x), int(y), box_w, box_h)
+            for _ in range(12):
+                if not any(_rects_overlap(candidate, other, margin=8) for other in local_existing):
+                    break
+                y += box_h + 10
+                if y + box_h > panel_y + panel_h - 12:
+                    y = panel_y + 12
+                    x = panel_x + 12
+                candidate = (int(x), int(y), box_w, box_h)
+            x, y = candidate[:2]
+            caption_bbox = (int(x), int(y), box_w, box_h)
+            local_existing.append(caption_bbox)
+            draw.rounded_rectangle(
+                (caption_bbox[0], caption_bbox[1], caption_bbox[0] + box_w, caption_bbox[1] + box_h),
+                radius=14, fill=(255, 255, 255), outline=(20, 20, 20), width=4
+            )
+            text_y = caption_bbox[1] + (box_h - text_height) // 2
+            for line in text_lines:
+                line_bbox = font.getbbox(line)
+                line_w = line_bbox[2] - line_bbox[0]
+                text_x = caption_bbox[0] + (box_w - line_w) // 2
+                draw.text((text_x, text_y), line, fill=(15, 15, 15), font=font)
+                text_y += line_height
+
     if not bubble_entries:
         return result
 
-    # QUAN TRỌNG: existing_bubbles được share cho TẤT CẢ panels
-    existing_bubbles: List[Tuple[int, int, int, int]] = []
+    # Keep occupancy local to each panel. Page coordinates are used for drawing,
+    # but a bubble in panel 1 must not make panel 2 appear occupied.
+    panel_bubbles: Dict[int, List[Tuple[int, int, int, int]]] = {}
 
     for entry, bubble_panel in zip(bubble_entries, bubble_panels):
         text = entry["text"]
@@ -1135,17 +1293,19 @@ def inject_bubbles_to_page(
         panel_y = bubble_panel["panel_y"]
         panel_w = bubble_panel["panel_w"]
         panel_h = bubble_panel["panel_h"]
+        local_existing = panel_bubbles.setdefault(bubble_panel["panel_idx"], [])
 
         font_size = max(22, min(page_width, page_height) // 36)
         font_name = get_font_name_for_emotion(emotion)
         font = load_font(font_name, font_size)
 
-        bubble_padding = 45
-        max_bubble_width = min(panel_w * 0.75, 400)
-        min_bubble_width = 120
-        min_bubble_height = 70
+        bubble_padding_x = max(42, int(panel_w * 0.025))
+        bubble_padding_y = max(32, int(panel_h * 0.025))
+        max_bubble_width = max(240, int(panel_w * 0.78))
+        min_bubble_width = 180
+        min_bubble_height = 100
         
-        max_text_width_initial = max(100, int(panel_w * 0.50))
+        max_text_width_initial = max(140, int(panel_w * 0.62))
         text_lines = wrap_text_to_lines(text, font, max_text_width_initial)
         line_height = font.getbbox("Ay")[3] - font.getbbox("Ay")[1]
         
@@ -1155,12 +1315,10 @@ def inject_bubbles_to_page(
             line_width = bbox[2] - bbox[0]
             text_width = max(text_width, line_width)
         
-        text_width = int(text_width * 1.1)
-        
-        bubble_width = max(int(text_width + bubble_padding * 2), min_bubble_width)
-        bubble_width = min(bubble_width, int(max_bubble_width))
-        
-        effective_text_width = max(60, bubble_width - bubble_padding * 2 - 10)
+        bubble_width = max(int(text_width + bubble_padding_x * 2), min_bubble_width)
+        bubble_width = min(bubble_width, max_bubble_width)
+
+        effective_text_width = max(100, bubble_width - bubble_padding_x * 2)
         text_lines = wrap_text_to_lines(text, font, effective_text_width)
         
         text_height = line_height * len(text_lines)
@@ -1170,10 +1328,29 @@ def inject_bubbles_to_page(
             line_width = bbox[2] - bbox[0]
             text_width_final = max(text_width_final, line_width)
         
-        if text_width_final + bubble_padding * 2 > bubble_width:
-            bubble_width = min(int(text_width_final + bubble_padding * 2 + 10), int(max_bubble_width))
+        if text_width_final + bubble_padding_x * 2 > bubble_width:
+            bubble_width = min(
+                int(text_width_final + bubble_padding_x * 2),
+                max_bubble_width,
+            )
 
-        bubble_height = max(int(text_height + bubble_padding * 2), min_bubble_height)
+        # Re-wrap against the final width once more and size from those exact
+        # lines; draw_speech_bubble must never receive a smaller box than the
+        # text it will render.
+        effective_text_width = max(100, bubble_width - bubble_padding_x * 2)
+        text_lines = wrap_text_to_lines(text, font, effective_text_width)
+        text_height = line_height * len(text_lines)
+        text_width_final = max(
+            (font.getbbox(line)[2] - font.getbbox(line)[0]) for line in text_lines
+        )
+        bubble_width = min(
+            max(bubble_width, text_width_final + bubble_padding_x * 2),
+            max_bubble_width,
+        )
+        bubble_height = max(
+            int(text_height + bubble_padding_y * 2),
+            min_bubble_height,
+        )
         bubble_height = min(bubble_height, int(panel_h * 0.60))
 
         # Gọi find_bubble_position với existing_bubbles GLOBAL (chứa bubbles từ tất cả panels)
@@ -1182,15 +1359,21 @@ def inject_bubbles_to_page(
             bubble_height,
             (panel_x, panel_y, panel_w, panel_h),
             char_bbox,
-            existing_bubbles,  # QUAN TRỌNG: pass existing_bubbles global
+            local_existing,
             page_width,
             page_height,
             attempts=200,  # Tăng số attempts lên 200
         )
+        x, y = _place_bubble_without_overlap(
+            (int(x), int(y)),
+            bubble_width,
+            bubble_height,
+            (panel_x, panel_y, panel_w, panel_h),
+            local_existing,
+            char_bbox,
+        )
         bubble_location = (int(x), int(y), bubble_width, bubble_height)
-        
-        # QUAN TRỌNG: Add vào existing_bubbles NGAY sau khi tìm được vị trí
-        existing_bubbles.append(bubble_location)
+        local_existing.append(bubble_location)
         
         print(f"[BUBBLE] Panel {bubble_panel['panel_idx']}: placed at ({x}, {y}, {bubble_width}, {bubble_height})")
 

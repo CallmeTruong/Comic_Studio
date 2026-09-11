@@ -3,6 +3,40 @@ from pathlib import Path
 import os
 from dotenv import load_dotenv
 
+
+# LoRA aliases are configuration, not renderer logic.  Keeping the catalog in
+# one place prevents the API and graph from silently disagreeing about which
+# styles are selectable.
+LORA_ALIASES = {
+    "ghibli": "models/loras/ghibli_style_offset.safetensors",
+    "mjmanga": "models/loras/MjManga.safetensors",
+    "ukiyo": "models/loras/Ukiyo-e.safetensors",
+    "vintage": "models/loras/1950sVintageArt.safetensors",
+    "cartoony": "models/loras/cartoony.safetensors",
+}
+
+
+def resolve_lora_selection(selection: str | None, directory: str = "models/loras") -> str | None:
+    """Resolve a configured alias or a user-added LoRA filename safely."""
+    from pathlib import Path
+
+    if not selection:
+        return None
+    configured = LORA_ALIASES.get(selection)
+    if configured:
+        return configured
+    requested = Path(str(selection)).name.casefold()
+    root = Path(directory)
+    if not requested or not root.exists():
+        return None
+    supported = {".safetensors", ".pt", ".ckpt"}
+    return next(
+        (str(path) for path in root.iterdir()
+         if path.is_file() and path.suffix.casefold() in supported
+         and path.name.casefold() == requested),
+        None,
+    )
+
 load_dotenv()
 
 @dataclass
@@ -44,7 +78,7 @@ class ModelConfig:
 class QualityConfig:
     mode: str = "balanced"
     base_steps: int = 80
-    panel_steps: int = 60 
+    panel_steps: int = 80 
     bubble_steps: int = 40
     max_render_width: int = 896
     max_render_height: int = 896
@@ -66,7 +100,7 @@ class QualityConfig:
 
 @dataclass
 class StyleConfig:
-    preset: str = "neutral"
+    preset: str = "flat_comic"
 
 @dataclass
 class StoryConfig:
