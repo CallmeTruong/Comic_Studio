@@ -13,7 +13,6 @@ from page.builder import preserve_aspect_resize
 from PIL import Image, ImageDraw
 from style.presets import get_style_preset
 from config import CONFIG
-from core.model_registry import ensure_model, validate_model_id
 
 
 def _position_ratio(value: str | None, fallback: float) -> float:
@@ -174,7 +173,6 @@ def generate_panels_unified(
     target_panel_ids: List[str] | None = None,
     series_id: str = "default",
     seed: int | None = None,
-    model_id: str = "sd15",
 ) -> Dict[str, Dict[str, int]]:
     # A CPU fallback is useful for schema/pipeline smoke tests, but rendering
     # four large SD 1.5 panels concurrently with the normal GPU dimensions can
@@ -236,14 +234,11 @@ def generate_panels_unified(
                 }
             )
 
-    model_id = validate_model_id(model_id)
-    model_profile, resolved_model_path = ensure_model(model_id, base_model_path)
-    selected_base = model_profile["family"]
-    print(f"[UNIFIED] Initializing {model_profile['label']}: {resolved_model_path}")
+    print(f"[UNIFIED] Initializing SD 1.5 model: {base_model_path}")
     sd_model = SD(
-        resolved_model_path,
+        base_model_path,
         device=device,
-        base=selected_base,
+        base="SDv1.5",
         negative_embedding_path=negative_embedding_path,
         controlnet_infos=controlnet_infos,
     )

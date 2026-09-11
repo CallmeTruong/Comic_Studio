@@ -2,7 +2,6 @@ import torch
 from pathlib import Path
 from diffusers import (
     StableDiffusionPipeline,
-    StableDiffusionXLPipeline,
     ControlNetModel,
     StableDiffusionControlNetPipeline,
     MultiControlNetModel,
@@ -44,14 +43,7 @@ class SD:
         
         print(f"[SD] Loading model: {model_path}")
         
-        if base == "SDXL":
-            self.pipe = StableDiffusionXLPipeline.from_pretrained(
-                model_path,
-                torch_dtype=self.dtype,
-                use_safetensors=True,
-                variant="fp16" if self.use_cuda else None,
-            )
-        elif base == "SDv1.5":
+        if base == "SDv1.5":
             if self.controlnet_infos:
                 control_models = []
                 for info in self.controlnet_infos:
@@ -110,7 +102,7 @@ class SD:
         # Initialise *after* textual-inversion tokens have been registered
         # so that Compel's tokenizer copy knows about them.
         self.compel: Compel | None = None
-        if _COMPEL_AVAILABLE and self.base == "SDv1.5":
+        if _COMPEL_AVAILABLE:
             try:
                 self.compel = Compel(
                     tokenizer=self.pipe.tokenizer,
@@ -121,12 +113,6 @@ class SD:
             except Exception as exc:
                 print(f"[WARN] Compel init failed ({exc}). Using raw text prompts.")
                 self.compel = None
-        elif self.base == "SDXL":
-            # SDXL has two text encoders and pooled conditioning; keep the
-            # native diffusers prompt path until an SDXL-specific Compel
-            # adapter is configured, rather than passing SD1.5 embeddings to
-            # the SDXL pipeline.
-            print("[SD] SDXL native prompt encoding enabled")
     
     def _load_negative_embedding(self, embedding_path: str):
         try:

@@ -10,7 +10,7 @@ Curated demo pages are kept in `images/curated/` only after direct visual review
 
 - Creates a short, causal storyboard with a clear visual punchline.
 - Writes concise dialogue in English or Vietnamese.
-- Renders panels locally with Stable Diffusion 1.5 or the optional SDXL profile.
+- Renders panels locally with Stable Diffusion 1.5.
 - Loads LoRA styles from `models/loras`.
 - Uses Compel for long prompts and prompt weighting.
 - Composes flexible page layouts and adds readable speech bubbles after rendering.
@@ -107,11 +107,7 @@ models/loras/
 
 Supported extensions are `.safetensors`, `.pt`, and `.ckpt`. The UI reads this directory at startup and lists newly added files automatically. Choose a style from the Models tab; incompatible LoRAs are skipped and the base checkpoint remains usable.
 
-The LoRA must be trained for SD 1.5. SDXL, Flux, or other architecture-specific LoRAs are not interchangeable with the default checkpoint.
-
-### Optional SDXL profile
-
-The Models tab also exposes **DreamShaper XL 1.0 (SDXL)** from `Lykon/dreamshaper-xl-1-0`. It is not downloaded when the app starts or when the model list is opened. The first render after selecting it downloads the checkpoint into `models/base/sdxl/dreamshaper-xl-1-0`; later renders reuse the local copy. Use an SDXL-compatible LoRA only with this profile. SDXL needs substantially more VRAM than SD 1.5, so Colab GPU runtimes are recommended for testing.
+LoRAs must be trained for SD 1.5 and be compatible with the selected checkpoint.
 
 ## Run
 
@@ -144,7 +140,7 @@ Open:
 
 Enter an idea, choose a layout/style, and click **Start Rendering**. Use a fixed seed when comparing prompts or LoRAs.
 
-For a quick Colab model check, open `colab_model_test.ipynb`, select a GPU runtime, and run the cells. The notebook keeps source code separate from model weights and downloads SDXL only when `MODEL = 'sdxl_dreamshaper'` is selected.
+For a quick Colab model check, open `colab_model_test.ipynb`, select a GPU runtime, and run the cells. The notebook keeps source code separate from model weights.
 
 ## Editing a generated page
 

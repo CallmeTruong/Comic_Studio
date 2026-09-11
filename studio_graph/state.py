@@ -15,7 +15,6 @@ class StudioState(TypedDict):
     negativePrompt: str
     seed: str
     pageCount: int
-    model: str
     retry_count: int
     max_retries: int
     generation_error: str

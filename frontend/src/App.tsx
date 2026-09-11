@@ -4,7 +4,6 @@ import { Pencil, Settings2, LayoutTemplate, SlidersHorizontal, Image as ImageIco
 type PanelMeta = { id: string; x: number; y: number; width: number; height: number; prompt: string; dialogues: { character_id?: string; text?: string; emotion?: string }[] }
 type PageMeta = { url: string; pageWidth: number; pageHeight: number; panels: PanelMeta[] }
 type LoraOption = { id: string; label: string }
-type ModelOption = { id: string; label: string; family: string; installed: boolean }
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000').replace(/\/$/, '')
 
@@ -30,8 +29,6 @@ export default function App() {
   const [guidance, setGuidance] = useState(7.5)
   const [lora, setLora] = useState("ghibli")
   const [loras, setLoras] = useState<LoraOption[]>([])
-  const [models, setModels] = useState<ModelOption[]>([])
-  const [model, setModel] = useState('sd15')
   const [negativePrompt, setNegativePrompt] = useState("")
   const [seed, setSeed] = useState("")
   const [layoutStyle, setLayoutStyle] = useState("auto")
@@ -75,7 +72,6 @@ export default function App() {
       .then(data => {
         const options = Array.isArray(data.loras) ? data.loras as LoraOption[] : []
         setLoras(options)
-        setModels(Array.isArray(data.models) ? data.models as ModelOption[] : [])
         if (options.length && !options.some(option => option.id === lora)) setLora(options[0].id)
       })
       .catch(err => console.error('Could not load LoRA catalog', err))
@@ -101,7 +97,6 @@ export default function App() {
           lora,
           negativePrompt,
           seed,
-          model,
         })
       })
       
@@ -212,7 +207,7 @@ export default function App() {
     try {
       const response = await fetch(`${API_BASE}/api/regenerate-panel`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pageUrl: editingPanel.pageUrl, panelId: editingPanel.panel.id, panelPrompt, dialogues, mode: panelEditMode, steps, guidance, lora, negativePrompt, seed, model })
+        body: JSON.stringify({ pageUrl: editingPanel.pageUrl, panelId: editingPanel.panel.id, panelPrompt, dialogues, mode: panelEditMode, steps, guidance, lora, negativePrompt, seed })
       })
       if (!response.ok) throw new Error(await response.text())
       const data = await response.json()
@@ -334,10 +329,7 @@ export default function App() {
             <div className="space-y-6">
               <div className="space-y-2">
                 <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Base Model & LoRA</label>
-                <select value={model} onChange={(e) => setModel(e.target.value)} className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-md text-sm">
-                  {models.map(option => <option key={option.id} value={option.id}>{option.label}{option.installed ? ' (installed)' : ' (download on first use)'}</option>)}
-                </select>
-                <p className="text-[11px] text-gray-400">SDXL is downloaded only when selected and a render is started.</p>
+                <div className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-md text-sm">Stable Diffusion 1.5</div>
                 <select 
                   value={lora}
                   onChange={(e) => setLora(e.target.value)}

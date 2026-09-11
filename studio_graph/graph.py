@@ -114,7 +114,6 @@ def run_renderer(state: StudioState, config: RunnableConfig) -> StudioState:
         series_id=f"short_comic_{timestamp}",
         seed=seed_val,
         style_name=CONFIG.style.preset,
-        model_id=state.get("model", "sd15"),
     )
         
     # BUILD PAGES

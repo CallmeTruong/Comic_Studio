@@ -16,7 +16,6 @@ from utils.parser import load_comic_from_json
 
 from studio_graph.graph import create_studio_graph
 from config import CONFIG, resolve_lora_selection
-from core.model_registry import model_catalog
 import uvicorn
 
 load_dotenv()
@@ -50,7 +49,6 @@ class GenerateRequest(BaseModel):
     negativePrompt: str = ""
     seed: str = ""
     pageCount: int = Field(default=1, ge=1, le=8)
-    model: str = Field(default="sd15", pattern="^(sd15|sdxl_dreamshaper)$")
 
 class RegeneratePanelRequest(BaseModel):
     pageUrl: str = Field(min_length=1)
@@ -63,7 +61,6 @@ class RegeneratePanelRequest(BaseModel):
     negativePrompt: str = ""
     seed: str = ""
     mode: str = Field(default="panel", pattern="^(panel|dialogue)$")
-    model: str = Field(default="sd15", pattern="^(sd15|sdxl_dreamshaper)$")
 
 
 class SavePageRequest(BaseModel):
@@ -92,7 +89,6 @@ async def get_capabilities():
     return {
         "sd15": True,
         "loras": available_loras(),
-        "models": model_catalog(),
     }
 
 @app.get("/api/history")
@@ -215,7 +211,6 @@ async def regenerate_panel(req: RegeneratePanelRequest):
             max_render_height=CONFIG.quality.max_render_height,
             negative_prompt_extra=req.negativePrompt, target_panel_ids=[req.panelId],
             series_id=f"regenerate_{job_id}", seed=seed, style_name=CONFIG.style.preset,
-            model_id=req.model,
         )
     expected_ids = [item.id for item in page_panels]
     layout = select_layout_name(len(expected_ids))
@@ -258,7 +253,6 @@ async def generate_short_comic(req: GenerateRequest):
                 "negativePrompt": req.negativePrompt,
                 "seed": req.seed,
                 "pageCount": req.pageCount,
-                "model": req.model,
                 "retry_count": 0,
                 "max_retries": CONFIG.story.max_retries,
                 "generation_error": "",

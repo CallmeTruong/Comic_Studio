@@ -1,4 +1,4 @@
-fastapi
+﻿fastapi
 uvicorn
 python-dotenv
 pillow
@@ -7,7 +7,6 @@ torch
 diffusers
 transformers
 accelerate
-huggingface-hub
 safetensors
 sentencepiece
 sentence-transformers
