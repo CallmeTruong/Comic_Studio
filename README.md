@@ -88,8 +88,9 @@ Create `.env` from `.env.example` and configure your chat/vision endpoint:
 ```env
 OPENAI_API_KEY=your_api_key
 OPENAI_BASE_URL=https://api.openai.com/v1
-OPENAI_VISION_MODEL=gpt-4o
 ```
+
+The default chat model is configured in `studio_graph/agents.py`; use an OpenAI-compatible model that accepts the vision input used by QA.
 
 Do not commit `.env` or expose API keys.
 
