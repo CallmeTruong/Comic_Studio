@@ -4,7 +4,13 @@ Local AI comic studio that turns a short idea into a complete comic page: plan t
 
 ## Demo
 
-Curated demo pages are kept in `images/curated/` only after direct visual review confirms that the story beats, required subjects, actions, dialogue, and continuity are all visible. No generated page is presented here as a reference until it passes that review.
+The page below is a small, deliberately simple SD 1.5 example. It was rendered at 80 steps and checked panel-by-panel for a readable sequence, recurring subject, and usable speech placement.
+
+<p align="center">
+  <img src="images/curated/baker_story_steps80.jpg" alt="Four-panel baker comic page" width="720">
+</p>
+
+The demo keeps the story simple because SD 1.5 is much more reliable with one recurring subject, a small number of props, and one clear action per panel. It is a visual example of the workflow, not a claim that every generated page will be perfect.
 
 ## What it does
 
