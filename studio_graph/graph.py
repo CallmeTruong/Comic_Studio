@@ -18,8 +18,10 @@ def run_renderer(state: StudioState, config: RunnableConfig) -> StudioState:
     print("\n[RENDERER] Booting Stable Diffusion...")
     schema = state["current_schema"]
     
-    # Use timestamp to avoid overwriting
-    timestamp = uuid4().hex
+    # Keep one stable page path for the whole request. If Vision QA sends the
+    # graph back to the renderer, the replacement overwrites that request's
+    # page instead of creating another item in History.
+    timestamp = state.get("generation_id") or uuid4().hex
     
     out_dir = Path(CONFIG.paths.panel_dir).parent
     job_dir = out_dir / "jobs" / timestamp

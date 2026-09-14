@@ -1,212 +1,246 @@
-﻿# ComicBookGenerator
+# ComicStudio
 
-Local AI comic studio that turns a short idea into a complete comic page: plan the story, write dialogue, render panels with Stable Diffusion 1.5, compose the page, and review it with vision QA.
+> An autonomous AI agent acting as a complete virtual comic studio. It integrates with a lightweight, locally running Stable Diffusion 1.5 model to give you precise control over generating, editing, and arranging short comic books from a single idea.
 
-## Demo
-
-The pages below are small SD 1.5 examples. They were rendered at 80 steps and checked panel-by-panel for a readable sequence, recurring subject, and usable speech placement.
+*Inspiration: This project's concept and workflow were inspired by the excellent [AI Comic Factory](https://huggingface.co/spaces/jbilcke-hf/ai-comic-factory).*
 
 <p align="center">
-  <img src="images/curated/baker_story_steps80.jpg" alt="Four-panel baker comic page" width="720">
+  <img src="images/curated/gardener_sunflower_steps80.jpg" alt="Generated four-panel gardener comic" width="360">
+  <img src="images/curated/baker_story_steps80.jpg" alt="Generated four-panel baker comic" width="360">
 </p>
 
-<p align="center">
-  <img src="images/curated/cat_box_punchline.jpg" alt="Four-panel cat and box comic page" width="720">
-</p>
+The examples above show the complete output: sequential panels, generated artwork, layout, and speech bubbles.
 
-The demos keep the stories simple because SD 1.5 is much more reliable with one recurring subject, a small number of props, and one clear action per panel. They are visual examples of the workflow, not a claim that every generated page will be perfect.
+## What the project does 🧩
 
-## What it does
+| Feature | What it provides |
+| --- | --- |
+| **Story planning** | Converts an idea into characters, setting, props, causal beats, and a visual payoff. |
+| **Dialogue writing** | Creates short dialogue in English or Vietnamese and keeps silent panels silent. |
+| **Storyboard validation** | Checks panel order, character continuity, actions, required props, and dialogue consistency. |
+| **AI panel rendering** | Generates each panel locally with Stable Diffusion 1.5 and an optional SD 1.5 LoRA. |
+| **Long prompts** | Uses [Compel](https://github.com/damian0815/compel) chunking and prompt weighting instead of silently truncating long panel descriptions. |
+| **Page composition** | Arranges panels in automatic or manga-style layouts and adds speech bubbles after rendering. |
+| **Vision QA** | Sends the actual page to a vision model to check missing subjects, props, actions, continuity, and irrelevant content. |
+| **Targeted retry** | Feeds QA corrections back into the graph; the API allows up to three QA retries (up to four render attempts including the first pass). |
+| **Panel editing** | The regenerate icon on each panel lets the user edit the image prompt or dialogue separately. |
+| **Save and download** | Saves a page to `outputs/saved` or downloads its PNG from the browser. |
+| **Live progress** | Streams planner, renderer, and QA events to the UI while a page is being generated. |
 
-- Creates a short, causal storyboard with a clear visual punchline.
-- Writes concise dialogue in English or Vietnamese.
-- Renders panels locally with Stable Diffusion 1.5.
-- Loads LoRA styles from `models/loras`.
-- Uses Compel for long prompts and prompt weighting.
-- Composes flexible page layouts and adds readable speech bubbles after rendering.
-- Runs vision QA panel by panel and retries targeted corrections.
-- Lets you edit a panel image prompt and regenerate only that panel.
-- Lets you edit speech bubbles without rerendering the image.
-- Saves or downloads finished pages from the UI.
-- Streams planner, renderer, and QA progress to the browser.
-
-## How the workflow works
+## Agent workflow 🤖
 
 ```mermaid
 graph TD
-    A[User idea] --> B[Story Planner]
-    B --> C[Dialogue Writer]
-    C --> D[Storyboarder]
-    D --> E{Art Director}
-    E -->|Revise story| B
-    E -->|Revise dialogue| C
-    E -->|Fix schema| D
-    E -->|Approved| F[SD 1.5 panel renderer]
-    F --> G[Page layout and speech bubbles]
-    G --> H{Vision QA}
-    H -->|Targeted correction| D
-    H -->|Dialogue correction| C
-    H -->|Pass| I[Complete comic page]
+    U["💡 Idea in UI"] --> P["📖 Story Planner"]
+    P --> D["💬 Dialogue Writer"]
+    D --> S["🎬 Storyboarder"]
+    S --> V["🎨 Art Director / Validator"]
+    V -->|story correction| P
+    V -->|dialogue correction| D
+    V -->|schema correction| S
+    V -->|approved| R["🖼️ SD 1.5 Renderer & Composer"]
+    R --> Q["🔍 Vision QA"]
+    Q -->|missing subject/action| S
+    Q -->|dialogue issue| D
+    Q -->|pass| O["✅ Editable comic page"]
 ```
 
-1. The Story Planner turns the idea into structured beats, characters, actions, props, and payoff.
-2. The Dialogue Writer creates short, natural dialogue in the requested language.
-3. The Storyboarder converts the plan into renderable JSON with fixed character cards and per-panel requirements.
-4. The Art Director validates pacing, causality, dialogue, and schema consistency.
-5. The selected local diffusion pipeline renders each panel. Compel chunks long SD 1.5 prompts; it does not draw the speech text.
-6. The compositor places panels and draws speech bubbles/text cleanly after diffusion.
-7. Vision QA checks the actual page, not only the prompt. Failed pages return targeted corrections for another attempt.
+1. **Story Planner** creates structured story beats and a fixed character description.
+2. **Dialogue Writer** writes concise lines that advance the same story.
+3. **Storyboarder** turns the plan into panel prompts, actions, props, and dialogue.
+4. **Validator / Art Director** repairs inconsistent or incomplete storyboard data.
+5. **Renderer & Composer** generates panel artwork using the local SD 1.5 checkpoint, builds the page layout, and places editable speech bubbles.
+6. **Vision QA** inspects the rendered page. When it fails, its corrections are routed back to the storyboarder (or dialogue writer) to intelligently fix the prompt before re-rendering.
 
-## Requirements
+## Requirements 📦
 
-- Windows, Python 3.13+, and Node.js LTS.
-- An NVIDIA GPU with a CUDA-compatible PyTorch installation is recommended for local rendering.
-- An OpenAI-compatible vision/chat API for story planning and QA.
-- A local SD 1.5 checkpoint and any desired LoRAs.
+- Python 3.11 or newer.
+- Node.js LTS and npm.
+- An NVIDIA GPU with a CUDA-enabled PyTorch build is recommended for rendering. CPU mode is only practical for small tests.
+- An OpenAI-compatible chat/vision endpoint for planning and QA.
+- A local Stable Diffusion 1.5 checkpoint.
 
-## Setup
+## Generation cost and retry behavior ⏱️
 
-From the project directory:
+- A request creates one comic page containing several panels; it does not intentionally create several independent pages.
+- Vision QA runs after the first render. If it finds a missing subject, prop, action, continuity problem, or dialogue mismatch, its correction is routed back into the graph.
+- The API default is `MAX_VISION_RETRIES=3`: one initial render plus at most three replacement renders. The current page is replaced in the UI and History, while job metadata remains available under `outputs/jobs`.
+- The slowest stage is usually **Stable Diffusion panel rendering**, especially the larger panels at 80 steps. Model loading, LoRA loading, page composition, and Vision QA add overhead, but diffusion denoising dominates local GPU time.
+- Compel improves how long prompts are encoded; it does not make SD 1.5 understand complex actions perfectly and does not reduce diffusion time.
+
+## Installation 🛠️
 
 ```powershell
-cd D:\ComicBookGenerator
+git clone <repository-url>
+cd ComicBookGenerator
 py -3 -m venv .venv
 .\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
-```
-
-Install the frontend packages:
-
-```powershell
 cd frontend
 npm install
 cd ..
 ```
 
-Create `.env` from `.env.example` and configure your chat/vision endpoint:
+On Linux or macOS, activate with `source .venv/bin/activate` and use `python3` where needed.
 
-```env
-OPENAI_API_KEY=your_api_key
-OPENAI_BASE_URL=https://api.openai.com/v1
-```
-
-The default chat model is configured in `studio_graph/agents.py`; use an OpenAI-compatible model that accepts the vision input used by QA.
-
-Do not commit `.env` or expose API keys.
-
-## Models and LoRAs
+## Model setup 🎨
 
 ### Base model
 
-The default checkpoint is configured in `config.py`:
+The default model path is:
 
 ```text
 models/base/comicBabes_v2.safetensors
 ```
 
-Place the SD 1.5 checkpoint at that path, or change `CONFIG.models.base_model` to the location of your compatible checkpoint.
+Download any **Stable Diffusion 1.5** checkpoint from its official Hugging Face or Civitai page and place the file at that path. To use another compatible checkpoint, change `CONFIG.models.base_model` in `config.py`.
 
-The application does not download the SD 1.5 checkpoint automatically. It must already be present locally.
+Model weights are intentionally not committed and are not downloaded automatically at startup.
 
-### LoRAs
+### LoRA styles
 
-Put SD 1.5-compatible LoRA files in:
+Place SD 1.5-compatible LoRA files here:
 
 ```text
 models/loras/
 ```
 
-Supported extensions are `.safetensors`, `.pt`, and `.ckpt`. The UI reads this directory at startup and lists newly added files automatically. Choose a style from the Models tab; incompatible LoRAs are skipped and the base checkpoint remains usable.
+The UI discovers `.safetensors`, `.pt`, and `.ckpt` files from this directory. Add a file, refresh the page, then select it in **Model Settings**. A LoRA must match the SD 1.5 base model; styles trained for another architecture are not interchangeable.
 
-LoRAs must be trained for SD 1.5 and be compatible with the selected checkpoint.
+## API configuration 🔐
 
-## Run
-
-Start the backend in one terminal:
+Copy the example environment file:
 
 ```powershell
-cd D:\ComicBookGenerator
+Copy-Item .env.example .env
+```
+
+Then set an OpenAI-compatible endpoint in `.env`:
+
+```env
+OPENAI_API_KEY=your_api_key
+OPENAI_BASE_URL=https://api.openai.com/v1
+# Model for story planning, dialogue, storyboard, and validation
+OPENAI_CHAT_MODEL=gpt-4o
+# Vision-capable model for QA (leave empty to reuse OPENAI_CHAT_MODEL)
+OPENAI_VISION_MODEL=gpt-4o
+```
+
+Change `OPENAI_CHAT_MODEL` or `OPENAI_VISION_MODEL` to a model exposed by your OpenAI-compatible provider. Use a vision-capable model for QA. Restart the backend after changing `.env`. Never commit `.env` or expose the key in a notebook, log, screenshot, or frontend bundle.
+
+## Run the application ▶️
+
+Start the backend in terminal 1:
+
+```powershell
 .\.venv\Scripts\Activate.ps1
 python api.py
 ```
 
-Start the frontend in another terminal:
+Start the frontend in terminal 2:
 
 ```powershell
-cd D:\ComicBookGenerator\frontend
+cd frontend
 npm run dev -- --host 127.0.0.1
-```
-
-For a remote frontend (for example, a Colab tunnel), set the API URL before starting Vite:
-
-```powershell
-$env:VITE_API_BASE_URL='https://your-backend-tunnel.example'
-npm run dev -- --host 0.0.0.0
 ```
 
 Open:
 
-- UI: http://127.0.0.1:5173
-- API documentation: http://127.0.0.1:8000/docs
+- UI: <http://127.0.0.1:5173>
+- API docs: <http://127.0.0.1:8000/docs>
 
-Enter an idea, choose a layout/style, and click **Start Rendering**. Use a fixed seed when comparing prompts or LoRAs.
+Enter an idea in **Storyboard**, choose a LoRA in **Model Settings**, choose a page layout, and click **Start Rendering**. `colab_model_test.ipynb` contains the GPU-oriented Colab setup; keep the checkpoint in Drive or upload it separately.
 
-For a quick Colab model check, open `colab_model_test.ipynb`, select a GPU runtime, and run the cells. The notebook keeps source code separate from model weights.
+## UI controls 🖥️
 
-## Editing a generated page
+The interface is designed to give users full control over the generation process, allowing you to adjust parameters, choose layouts, select LoRAs, and regenerate specific panels. It is divided into three settings tabs, a result canvas, and a history rail:
 
-Click the circular-arrow icon in the upper-right corner of a panel.
+### ✏️ Storyboard tab
 
-- **Edit image prompt** → rerenders only that panel with SD 1.5 and rebuilds the page.
-- **Edit speech bubbles** → updates the dialogue and rebuilds the page without running diffusion.
-- **Save** → copies the page to `outputs/saved`.
-- **Download** → downloads the current PNG.
+<p align="center">
+  <img src="images/ui/storyboard.png" alt="Storyboard Tab" width="700">
+</p>
 
-Dialogue edits use a JSON array such as:
+- **Your Idea** — enter the premise, characters, situation, language, or desired tone.
+- **Start Rendering** — sends the idea to the agent graph and starts the complete workflow.
+- **Terminal** — shows live planning, validation, rendering, retry, and error messages.
+
+### ⚙️ Model Settings tab
+
+<p align="center">
+  <img src="images/ui/model_settings.png" alt="Model Settings Tab" width="700">
+</p>
+
+Users can flexibly adjust generation parameters to control the final artwork:
+- **Base Model & LoRA selector** — displays the active SD 1.5 pipeline and lets you dynamically choose a style discovered from `models/loras`.
+- **Sampling Steps & CFG Scale** — use the sliders to control diffusion quality, render time, and how strongly the image follows the prompt.
+- **Negative Prompt** — adds things to avoid, such as text artifacts, extra characters, or bad anatomy.
+- **Seed** — use a fixed number to reproduce a result or leave it empty for a new random result.
+
+### 🧱 Layout Settings tab
+
+<p align="center">
+  <img src="images/ui/layout_settings.png" alt="Layout Settings Tab" width="700">
+</p>
+
+Customize the visual flow of your comic page:
+- **Panel Grid** — choose between **Automatic (AI)** for a suitable AI-determined arrangement, or select a specific **Manga Grid** for vertical reading layouts.
+- **Detailed Layout** — manually pick the panel proportions.
+- **Speech bubbles** — toggle automatic post-render bubble and dialogue generation.
+
+### 🖼️ Result canvas & Regeneration
+
+<p align="center">
+  <img src="images/ui/regenerate.png" alt="Regenerate Panel" width="700">
+</p>
+
+- Displays the generated comic page and its panels.
+- **Regenerate icon** — the circular-arrow button in the upper-right of each panel opens the editor overlay.
+  - **Edit image prompt** — fine-tune the prompt and regenerate *only* that specific panel, preserving the rest of the page.
+  - **Edit speech bubbles** — rewrite the dialogue text without re-running the heavy diffusion process.
+- **Save & Download** — save the page to `outputs/saved` or download it directly as a PNG.
+
+### 🕘 History
+
+- Shows previously generated pages as thumbnails.
+- Clicking a thumbnail reopens that page in the result canvas.
+
+Example dialogue payload for the panel editor:
 
 ```json
 [
   {
-    "character_id": "cat",
-    "text": "I prefer the box.",
-    "emotion": "unimpressed"
+    "character_id": "gardener",
+    "text": "Best shade in the garden.",
+    "emotion": "pleased"
   }
 ]
 ```
 
-## Project layout
+## Project structure 🗂️
 
 ```text
-api.py                 FastAPI API, SSE events, save/download/regeneration endpoints
-studio_graph/          LangGraph planner, dialogue, storyboard, validation, and vision QA
-panel_engine/          SD 1.5 prompt assembly, Compel, and panel rendering
+api.py                 FastAPI API, streaming events, save and regeneration endpoints
+config.py              Model, quality, layout, and LoRA configuration
+studio_graph/          LangGraph agents and conditional retry routing
+panel_engine/          SD 1.5 prompts, Compel, and panel rendering
 core/                  Stable Diffusion pipeline wrapper
-page/                  Panel layout and page composition
-bubbles/               Speech bubble placement and text compositing
-frontend/              React + TypeScript interface
-models/base/           Local SD 1.5 checkpoints
-models/loras/          User-installed SD 1.5 LoRAs
-images/curated/        Curated demo pages (quality-checked before publication)
-outputs/               Generated pages and per-job metadata
+page/                  Panel layouts and page composition
+bubbles/               Speech-bubble detection and text rendering
+frontend/              React + TypeScript UI
+models/base/           Local SD 1.5 checkpoints (ignored by Git)
+models/loras/          User LoRAs (ignored by Git)
+images/curated/        Reviewed README demo images
+outputs/               Generated pages and job metadata (ignored by Git)
 ```
 
-## Troubleshooting
+## Troubleshooting 🩺
 
-- **CUDA is unavailable:** check the NVIDIA driver, PyTorch CUDA build, and `torch.cuda.is_available()`. The CPU fallback is intended for small smoke tests and is much slower.
-- **Generation is slow:** use a smaller development step count or render size; use the default quality settings for final pages.
-- **A LoRA fails to load:** verify that it is an SD 1.5 LoRA compatible with the base checkpoint.
-- **Dialogue is awkward:** state the desired language, tone, conflict, and punchline in the idea, then regenerate the dialogue or storyboard.
-- **Vision QA rejects a page:** read the streamed correction; it identifies the missing subject, prop, action, or continuity problem that must be fixed.
+- **Checkpoint missing:** verify `models/base/comicBabes_v2.safetensors` or update `CONFIG.models.base_model`.
+- **CUDA unavailable:** verify the NVIDIA driver, CUDA PyTorch build, and `torch.cuda.is_available()`.
+- **Generation is slow:** use fewer steps while testing, lower render dimensions, or use a GPU.
+- **LoRA error:** confirm that the LoRA is made for SD 1.5 and matches the base checkpoint.
+- **Vision QA error:** verify that the configured model and endpoint accept image input.
+- **Authentication or quota error:** check `OPENAI_API_KEY`, `OPENAI_BASE_URL`, model access, and account credit.
 
-## Curating demo pages
-
-Generated pages are written to `outputs/`. To review a candidate before adding it to the README:
-
-1. Inspect the complete page and every panel at readable resolution.
-2. Confirm the causal sequence, recurring characters, required props/actions, and dialogue all match.
-3. Run the configured Vision QA or an independent visual review.
-4. Copy only a passing candidate into `images/curated/` and reference it from the Demo section.
-
-## Notes
-
-The project uses third-party checkpoints, LoRAs, fonts, and APIs. Review their licenses and usage terms separately. Generated output quality depends on the chosen checkpoint, LoRA, seed, prompt, and available GPU memory.

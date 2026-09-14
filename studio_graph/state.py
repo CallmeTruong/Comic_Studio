@@ -1,7 +1,11 @@
 from typing import TypedDict, List, Any
 
 class StudioState(TypedDict):
+    # Stable identifier for one user request. Vision-QA retries reuse the same
+    # output directory/page instead of creating another History entry.
+    generation_id: str
     user_prompt: str
+    requested_language: str
     current_schema: dict
     validation_errors: List[str]
     next_step: str

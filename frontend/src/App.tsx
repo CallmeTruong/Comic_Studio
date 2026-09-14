@@ -23,6 +23,7 @@ export default function App() {
   const [panelEditMode, setPanelEditMode] = useState<'panel' | 'dialogue'>('panel')
   const [panelRegenerating, setPanelRegenerating] = useState(false)
   const [savedPages, setSavedPages] = useState<string[]>([])
+  const generationUrlsRef = useRef<string[]>([])
   
   // Settings State (UI Demo)
   const [steps, setSteps] = useState(80)
@@ -42,7 +43,7 @@ export default function App() {
 
   useEffect(() => {
     // Fetch initial history
-    fetch(`${API_BASE}/api/history`)
+    fetch(`${API_BASE}/api/history?_=${Date.now()}`, { cache: 'no-store' })
       .then(res => res.json())
       .then(data => {
         if (data.history && data.history.length > 0) {
@@ -83,6 +84,7 @@ export default function App() {
     setActiveTab('prompt') // Switch back to prompt tab to see logs
     setLogs(["[SYSTEM] Sending request..."])
     setResultImages([])
+    generationUrlsRef.current = []
 
     try {
       const response = await fetch(`${API_BASE}/api/generate`, {
@@ -121,13 +123,14 @@ export default function App() {
             } else if (msg.startsWith('[RESULT]')) {
               const url = msg.substring(9).trim()
               const fullUrl = `${API_BASE}${url}`
-              setResultImages(prev => [...prev, fullUrl])
+              // A Vision-QA retry renders a replacement page. Show only the
+              // newest result instead of stacking every rejected attempt.
+              setResultImages([fullUrl])
+              generationUrlsRef.current.push(fullUrl)
               setHistory(prev => {
-                // Prepend to history, avoid exact duplicates if immediately retried
-                if (prev[0] !== fullUrl) {
-                  return [fullUrl, ...prev]
-                }
-                return prev
+                const previousAttempts = new Set(generationUrlsRef.current)
+                previousAttempts.delete(fullUrl)
+                return [fullUrl, ...prev.filter(item => !previousAttempts.has(item) && item !== fullUrl)]
               })
             } else if (msg.startsWith('[META]')) {
               const meta = JSON.parse(msg.substring(7)) as PageMeta

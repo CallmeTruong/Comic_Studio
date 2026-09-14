@@ -27,8 +27,11 @@ base_url = os.getenv("OPENAI_BASE_URL")
 if not base_url:
     base_url = None
 
-llm = ChatOpenAI(model="gpt-4o", temperature=0.7, base_url=base_url)
-llm_json = ChatOpenAI(model="gpt-4o", temperature=0.7, base_url=base_url, model_kwargs={"response_format": {"type": "json_object"}})
+chat_model = os.getenv("OPENAI_CHAT_MODEL", "gpt-4o")
+vision_model = os.getenv("OPENAI_VISION_MODEL", chat_model)
+
+llm = ChatOpenAI(model=chat_model, temperature=0.7, base_url=base_url)
+llm_json = ChatOpenAI(model=chat_model, temperature=0.7, base_url=base_url, model_kwargs={"response_format": {"type": "json_object"}})
 
 def parse_json_content(content) -> dict:
     raw = content if isinstance(content, str) else json.dumps(content)
@@ -194,6 +197,10 @@ def run_story_planner(state: StudioState) -> StudioState:
     result = (prompt | llm_json).invoke({"idea": state["user_prompt"], "pages": state.get("pageCount", 1)})
     try:
         state["story_plan"] = parse_json_content(result.content)
+        # Keep the language selected by the planner as an explicit state value;
+        # dialogue generation must not infer it from names or location.
+        language = str(state["story_plan"].get("language", "")).strip()
+        state["requested_language"] = language or "English"
         state["validation_errors"] = []
         state["next_step"] = "dialogue_writer"
     except Exception as exc:
@@ -211,7 +218,7 @@ def run_vision_qa(state: StudioState) -> StudioState:
         state["next_step"] = "failed"
         return state
     vision = ChatOpenAI(
-        model=os.getenv("OPENAI_VISION_MODEL", "gpt-4o"),
+        model=vision_model,
         temperature=0,
         base_url=base_url,
         max_retries=2,
@@ -279,7 +286,7 @@ def run_vision_qa(state: StudioState) -> StudioState:
                 {
                     **state["vision_qa"],
                     "attempt": int(state.get("vision_retry_count", 0)) + 1,
-                    "model": os.getenv("OPENAI_VISION_MODEL", "gpt-4o"),
+                    "model": vision_model,
                     "page": str(page_path),
                 },
                 ensure_ascii=False,
@@ -355,6 +362,7 @@ def run_dialogue_writer(state: StudioState) -> StudioState:
     prompt = ChatPromptTemplate.from_messages([("system", DIALOGUE_WRITER_SYSTEM_PROMPT), ("human", DIALOGUE_WRITER_HUMAN_PROMPT)])
     result = (prompt | llm_json).invoke({
         "plan": json.dumps(state.get("story_plan", {}), ensure_ascii=False),
+        "language": state.get("requested_language") or state.get("story_plan", {}).get("language", "English"),
         "corrections": json.dumps(state.get("story_plan", {}).get("vision_corrections", []), ensure_ascii=False),
     })
     try:

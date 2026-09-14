@@ -95,6 +95,12 @@ async def get_capabilities():
 async def get_history():
     files = []
     for f in output_dir.glob("comic_page_*.png"):
+        # Keep rendered pages visible even when Vision QA rejected them. A
+        # rejected page is still useful for inspection, and hiding it made a
+        # successful diffusion run look as if nothing had been generated.
+        # The frontend replaces intermediate retry results while a request is
+        # active, so the user can still inspect the latest page without an
+        # empty history after a browser refresh.
         files.append((f.stat().st_mtime, f.name))
     files.sort(reverse=True)
     return {"history": [f"/outputs/{name}" for _, name in files]}
@@ -234,7 +240,9 @@ async def generate_short_comic(req: GenerateRequest):
         try:
             # We can stream the events from LangGraph
             initial_state = {
+                "generation_id": uuid.uuid4().hex,
                 "user_prompt": req.prompt, 
+                "requested_language": "",
                 "current_schema": {}, 
                 "story_plan": {},
                 "dialogue_plan": {},
@@ -276,7 +284,13 @@ async def generate_short_comic(req: GenerateRequest):
                         else:
                             yield "data: [AGENT] Storyboard approved! Starting rendering...\n\n"
                     elif key == "renderer":
-                        yield "data: [RENDERER] Rendering and assembling the comic...\n\n"
+                        retry_no = int(value.get("vision_retry_count", 0))
+                        message = (
+                            f"[RENDERER] Rendering replacement attempt {retry_no + 1} for the same comic page..."
+                            if retry_no else
+                            "[RENDERER] Rendering and assembling the comic page..."
+                        )
+                        yield f"data: {message}\n\n"
                         # When renderer is done, it adds 'output_pages' to state
                         output_pages = value.get("output_pages", [])
                         if output_pages:
@@ -304,6 +318,7 @@ async def generate_short_comic(req: GenerateRequest):
                         qa = value.get("vision_qa", {})
                         status = "Passed" if qa.get("passed") else "Rejected"
                         attempt = int(value.get("vision_retry_count", 0)) + 1
+                        max_attempts = int(value.get("max_vision_retries", 0)) + 1
                         corrections = "; ".join(
                             str(item.get("correction") or item.get("reason", ""))
                             for item in qa.get("issues", [])[:3]
@@ -311,7 +326,8 @@ async def generate_short_comic(req: GenerateRequest):
                         detail = qa.get("summary", "")
                         if corrections:
                             detail += f" Corrections: {corrections}"
-                        yield f"data: [VISION QA] Attempt {attempt}/10 — {status} ({qa.get('score', 0)}/10): {detail}\n\n"
+                        suffix = " Continuing with a replacement render for the same page." if not qa.get("passed") and attempt < max_attempts else ""
+                        yield f"data: [VISION QA] Attempt {attempt}/{max_attempts} - {status} ({qa.get('score', 0)}/10): {detail}{suffix}\n\n"
         except Exception as e:
             yield f"data: [ERROR] System error: {e}\n\n"
             

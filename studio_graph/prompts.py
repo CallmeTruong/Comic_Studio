@@ -301,24 +301,33 @@ DIALOGUE_WRITER_SYSTEM_PROMPT = """You are a professional one-page webcomic dial
 Use the requested language exactly. Lines must sound like casual human conversation in that language, reveal intent,
 reaction, conflict, or a changing point of view. Never narrate visible action, label objects, use filler, slogans,
 famous quotes, literal translations, or unrelated jokes. Use at most two bubbles per panel, at most 12 words per
-bubble, and include one silent reaction panel before the payoff. Never use a line that only names, confirms, or denies a visible fact; replace it with the speaker's goal, worry, demand, interpretation, or decision. Preserve the causal chain: the first line creates a
-specific expectation, the middle line/visual changes its meaning, and the final action or line pays it off. The last
-panel should preferably be understandable with no dialogue. Return JSON only with a dialogues array. Each item must
-contain panel, character_id, text, intent, and emotion. The final panel must contain the strongest payoff."""
+bubble, and allow individual reaction panels to remain silent. Unless the user explicitly requests a completely
+silent comic, the story MUST contain at least one concise dialogue line; prefer a line in the setup, escalation, or
+payoff rather than forcing speech into every panel. Never use a line that only names, confirms, or denies a visible
+fact; replace it with the speaker's goal, worry, demand, interpretation, or decision. Preserve the causal chain: the
+first line creates a specific expectation, the middle line/visual changes its meaning, and the final action or line
+pays it off. The final panel may be understandable without dialogue, but if it has a bubble that bubble must be the
+strongest payoff. Return JSON only with a dialogues array. Each item must contain panel, character_id, text, intent,
+and emotion."""
 
 STORY_PLANNER_HUMAN_PROMPT = """User idea: {idea}
 Requested pages: {pages}
-Return a compact JSON story plan. Do not write image prompts or dialogue."""
+Determine the dialogue language from the user's idea. English input means `language: "English"` and English
+dialogue; Vietnamese input means `language: "Vietnamese"` and Vietnamese dialogue. Do not infer Vietnamese from
+names, ethnicity, or location. Return a compact JSON story plan. Do not write image prompts or dialogue."""
 
 DIALOGUE_WRITER_HUMAN_PROMPT = """Story plan:
 {plan}
+
+Authoritative dialogue language: {language}
 
 Previous QA corrections:
 {corrections}
 
 Write dialogue in the plan's language. Preserve character IDs and panel causality. If corrections
-are present, rewrite only affected dialogue and keep all unaffected lines. Keep at least one silent
-panel and make the final panel the strongest payoff."""
+are present, rewrite only affected dialogue and keep all unaffected lines. Keep at least one silent reaction panel
+when it improves pacing, but ensure the story has at least one dialogue line unless the user explicitly requested a
+completely silent comic. Make the final panel the strongest visual or verbal payoff."""
 
 
 def build_storyboarder_human_prompt(page_count: int, has_previous_draft: bool) -> str:
@@ -340,10 +349,11 @@ CRITICAL REQUIREMENTS:
    Do not infer Vietnamese merely from a character name or setting. Do not translate idioms
    word-for-word; preserve the intended tone (casual, deadpan, sarcastic, or excited).
 5. Keep each dialogue bubble to at most 12 words. Prefer one strong line over two weak lines.
-6. Dialogue is optional when the visual action carries the story. Do not narrate what the image
-   already shows. If dialogue exists, it must reveal intent, reaction, conflict, or a punchline.
-   Never use filler such as "Wow!", "Great!", "Oh!", or generic slogans. Do not force dialogue into
-   a silent visual gag.
+6. Dialogue is optional for individual reaction panels, but unless the user explicitly requests a completely silent
+   comic, the story MUST contain at least one concise dialogue line. Prefer dialogue in the setup, escalation, or
+   payoff and leave other panels silent when that improves pacing. Do not narrate what the image already shows. If
+   dialogue exists, it must reveal intent, reaction, conflict, or a punchline. Never use filler such as "Wow!",
+   "Great!", "Oh!", or generic slogans. Do not force dialogue into a silent visual gag.
 7. Do not use famous quotations or parody lines unless the user explicitly asks for them.
 8. Every panel must show a distinct action, expression, or camera change from the previous panel.
    Preserve the approved setting and registered character designs unless the story plan
@@ -375,8 +385,9 @@ CRITICAL REQUIREMENTS:
     `visual_hierarchy`, `required_subjects`, `required_action`, and `required_props` whenever they
     are relevant. Repeat each required prop inside `panel_prompt_en`; panels are rendered
     independently. `required_props` is a concrete object list, not prose.
-17. Do not add an unregistered visible character merely to fill empty space. If a beat is a
-    silent visual gag, keep its `dialogues` array empty and make the visual action explicit.
+17. Do not add an unregistered visible character merely to fill empty space. A reaction beat may keep its
+    `dialogues` array empty, but preserve at least one approved dialogue line somewhere in the story unless the user
+    explicitly requested a completely silent comic. Make every silent beat's visual action explicit.
 
 APPROVED STORY PLAN:
 {{story_plan}}

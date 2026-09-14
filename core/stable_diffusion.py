@@ -148,6 +148,38 @@ class SD:
             print(f"[SD] LoRA loaded and fused: {lora_path}")
             return True
         except (IndexError, KeyError, ValueError, RuntimeError, ImportError) as exc:
+            # Older A1111/kohya SD 1.5 LoRAs often contain text-encoder
+            # alpha metadata that current PEFT cannot infer (the common
+            # ``list index out of range`` failure). The U-Net portion still
+            # contains the visual style, so load that portion explicitly and
+            # omit the incompatible text-encoder adapter.
+            if isinstance(exc, IndexError):
+                try:
+                    self.pipe.unload_lora_weights()
+                except Exception:
+                    pass
+                try:
+                    state_dict, network_alphas, metadata = self.pipe.lora_state_dict(
+                        lora_path, return_lora_metadata=True
+                    )
+                    self.pipe.load_lora_into_unet(
+                        state_dict,
+                        network_alphas=network_alphas,
+                        unet=self.pipe.unet,
+                        _pipeline=self.pipe,
+                        metadata=metadata,
+                    )
+                    self.pipe.fuse_lora(components=["unet"], lora_scale=scale)
+                    print(
+                        f"[SD] LoRA loaded and fused (U-Net only; text encoder skipped): {lora_path}"
+                    )
+                    return True
+                except (IndexError, KeyError, ValueError, RuntimeError, ImportError) as fallback_exc:
+                    print(
+                        f"[WARN] Could not load LoRA '{lora_path}' ({exc}; U-Net fallback: {fallback_exc}). "
+                        "Continuing without LoRA."
+                    )
+                    return False
             print(f"[WARN] Could not load LoRA '{lora_path}': {exc}. Continuing without LoRA.")
             return False
 
