@@ -88,13 +88,13 @@ On Linux or macOS, activate with `source .venv/bin/activate` and use `python3` w
 
 ### Base model
 
-The default model path is:
+Download any **Stable Diffusion 1.5** checkpoint (`.safetensors` or `.ckpt`) from Hugging Face or Civitai and place it in:
 
 ```text
-models/base/comicBabes_v2.safetensors
+models/base/
 ```
 
-Download any **Stable Diffusion 1.5** checkpoint from its official Hugging Face or Civitai page and place the file at that path. To use another compatible checkpoint, change `CONFIG.models.base_model` in `config.py`.
+The default config expects `models/base/comicBabes_v2.safetensors`, but any SD 1.5 checkpoint works. To use a different filename, update `base_model` in `config.py`.
 
 Model weights are intentionally not committed and are not downloaded automatically at startup.
 
@@ -107,6 +107,16 @@ models/loras/
 ```
 
 The UI discovers `.safetensors`, `.pt`, and `.ckpt` files from this directory. Add a file, refresh the page, then select it in **Model Settings**. A LoRA must match the SD 1.5 base model; styles trained for another architecture are not interchangeable.
+
+### Negative embedding (optional)
+
+A negative embedding (e.g. `negative_hand-neg.pt` from Civitai) can reduce common SD 1.5 artifacts like deformed hands. Place the file in:
+
+```text
+models/embeddings/
+```
+
+Then set `negative_embedding` in `config.py` to the file path. This is **entirely optional** — if the file is missing or the field is `None`, the app runs normally without it.
 
 ## API configuration 🔐
 
